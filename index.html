@@ -1,0 +1,657 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f7f3">
+  <title>Wellspan Foodboard</title>
+  <style>
+    :root {
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #1f302a;
+      background: #f5f7f3;
+      font-synthesis: none;
+      --ink: #1f302a;
+      --muted: #68766f;
+      --border: #dae2da;
+      --green: #246b5a;
+      --green-deep: #164c41;
+      --white: #fff;
+      --surface: #f9faf7;
+      --shadow: 0 12px 32px rgba(25, 48, 33, .055);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: .45; }
+    button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid #8ac7b3; outline-offset: 2px; }
+    .shell { max-width: 1440px; margin: 0 auto; padding: 30px 28px 70px; }
+    .topline { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 27px; }
+    .identity { display: flex; align-items: center; gap: 14px; }
+    .mark { width: 42px; height: 42px; display: grid; place-items: center; background: #e2eee7; color: var(--green-deep); border-radius: 13px; font-weight: 800; font-size: 22px; }
+    .brand { font-size: 13px; text-transform: uppercase; font-weight: 750; letter-spacing: .14em; color: var(--green); }
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: clamp(27px, 3vw, 37px); letter-spacing: -.055em; line-height: 1.14; margin-top: 17px; }
+    .lede { color: var(--muted); font-size: 14px; margin-top: 9px; line-height: 1.5; }
+    .top-actions, .catalog-actions { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; }
+    .button { display: inline-flex; gap: 7px; align-items: center; justify-content: center; border-radius: 9px; border: 1px solid var(--border); background: #fff; color: #263e33; min-height: 38px; padding: 9px 13px; font-size: 13px; font-weight: 660; white-space: nowrap; transition: background .15s, border-color .15s; }
+    .button:hover:not(:disabled) { background: #edf3ee; border-color: #bfcfc4; }
+    .button.primary { background: var(--green); color: white; border-color: var(--green); }
+    .button.primary:hover:not(:disabled) { background: var(--green-deep); }
+    .button.ghost { background: transparent; }
+    .button.danger { color: #a43e35; }
+    .button.small { min-height: 30px; padding: 5px 9px; font-size: 12px; }
+    .button.icon-only { min-width: 28px; min-height: 28px; padding: 0; border-radius: 7px; }
+    .intro { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; flex-wrap: wrap; margin: 0 0 18px; }
+    .eyebrow { text-transform: uppercase; font-size: 11px; color: #6f8375; letter-spacing: .12em; font-weight: 760; }
+    .section-title { font-size: 23px; letter-spacing: -.035em; margin-top: 4px; }
+    .summary-strip { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: #e9f2e9; padding: 12px 16px; border-radius: 11px; font-size: 12px; color: #446055; }
+    .summary-strip strong { color: #214b3a; font-size: 17px; font-weight: 780; font-variant-numeric: tabular-nums; }
+    .summary-strip .vdivider { border-right: 1px solid #c6d9c9; height: 27px; }
+    .plan-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .meal { min-width: 0; border: 1px solid var(--border); border-radius: 15px; background: #fff; overflow: hidden; box-shadow: var(--shadow); display: flex; flex-direction: column; }
+    .meal-top { padding: 22px 21px 17px; border-top: 4px solid var(--meal-color); }
+    .meal-name { font-size: 21px; letter-spacing: -.035em; font-weight: 740; }
+    .meal-subtitle { font-size: 12px; color: var(--muted); margin-top: 5px; }
+    .meal-nutrients { padding: 0 21px 17px; }
+    .hero { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 0 0 16px; border-bottom: 1px solid #e8ede8; }
+    .hero .number { font-size: 38px; letter-spacing: -.06em; line-height: 1; font-weight: 780; font-variant-numeric: tabular-nums; }
+    .hero .unit { font-size: 12px; color: var(--muted); margin-left: 5px; }
+    .hero-right { font-size: 12px; color: var(--muted); text-align: right; }
+    .hero-right strong { display: block; font-size: 21px; line-height: 1.15; color: #274f43; font-variant-numeric: tabular-nums; }
+    .nutrient-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 12px; padding-top: 16px; }
+    .nutrient .value { font-weight: 760; font-size: 17px; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
+    .nutrient .unit { color: var(--muted); font-size: 11px; margin-left: 2px; }
+    .nutrient .label { color: var(--muted); font-size: 11px; margin-top: 3px; }
+    .partial { color: #a76a2b; font-size: 13px; margin-left: 2px; vertical-align: top; }
+    .meal-foods { background: var(--surface); border-top: 1px solid #e8ede8; padding: 18px 21px 20px; flex: 1; }
+    .food-heading { font-size: 12px; text-transform: uppercase; font-weight: 730; letter-spacing: .085em; color: #718077; margin-bottom: 11px; }
+    .food-items { display: grid; gap: 7px; margin: 0 0 13px; padding: 0; list-style: none; min-height: 36px; }
+    .food-item { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-radius: 8px; border: 1px solid #e5eae5; background: white; padding: 8px 9px 8px 11px; font-size: 12px; }
+    .food-item-label { overflow-wrap: anywhere; font-weight: 580; }
+    .food-item-actions { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+    .food-item-kcal { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .food-item button { border: 0; background: #f2f5f0; color: #6d786e; display: grid; place-items: center; border-radius: 6px; width: 24px; height: 24px; font-size: 18px; line-height: 1; }
+    .food-item button:hover { background: #f8e7e4; color: #a43e35; }
+    .food-empty { display: grid; place-items: center; border: 1px dashed #d9e2d8; border-radius: 9px; padding: 18px 10px; color: #819086; font-size: 12px; text-align: center; }
+    .add-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
+    .select, .search, .field input { width: 100%; border: 1px solid #cfdad0; border-radius: 8px; background: white; color: var(--ink); height: 38px; padding: 7px 11px; font-size: 13px; }
+    .select { text-overflow: ellipsis; }
+    .partial-note { margin-top: 12px; font-size: 11px; line-height: 1.5; color: #916433; }
+    .catalog { background: #fff; border-radius: 15px; border: 1px solid var(--border); box-shadow: var(--shadow); margin-top: 28px; overflow: hidden; }
+    .catalog-head { padding: 23px 23px 20px; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; border-bottom: 1px solid #e7ece7; }
+    .catalog-head .lede { max-width: 600px; }
+    .search { width: min(230px, 100%); }
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+    th { background: #f9fbf8; color: #6d7b71; font-size: 11px; font-weight: 740; white-space: nowrap; padding: 13px 15px; border-bottom: 1px solid #e6ece5; }
+    td { padding: 11px 15px; border-bottom: 1px solid #ecf0ea; color: #405047; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    tbody tr:hover { background: #f9fbf7; }
+    tbody tr:last-child td { border-bottom: 0; }
+    .food-name-cell { min-width: 195px; white-space: normal; color: #263c30; font-weight: 670; }
+    .food-actions { display: flex; gap: 5px; justify-content: flex-end; }
+    .none { color: #b1bdb4; }
+    .catalog-footer { padding: 13px 23px; font-size: 12px; color: var(--muted); background: #fafbf9; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; border-top: 1px solid #e7ece7; }
+    .site-footer { color: #849087; font-size: 12px; text-align: center; margin-top: 24px; line-height: 1.6; }
+    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #263d32; color: #fff; padding: 11px 17px; border-radius: 9px; font-size: 13px; box-shadow: 0 12px 30px #0002; z-index: 100; max-width: min(92vw, 560px); }
+    dialog { color: var(--ink); border: 1px solid #dbe5da; border-radius: 16px; padding: 0; max-width: min(610px, calc(100vw - 24px)); width: 100%; box-shadow: 0 24px 90px #17382d40; }
+    dialog::backdrop { background: #1b2c246e; backdrop-filter: blur(3px); }
+    .dialog-head { padding: 23px 26px 15px; border-bottom: 1px solid #e6ebe5; }
+    .dialog-head h3 { font-size: 22px; letter-spacing: -.04em; }
+    .dialog-head p { margin-top: 6px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .dialog-body { padding: 21px 26px 18px; max-height: min(64vh, 650px); overflow: auto; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .field { display: grid; gap: 6px; min-width: 0; }
+    .field.full { grid-column: 1 / -1; }
+    .field label { font-size: 12px; color: #435649; font-weight: 670; }
+    .field input { height: 41px; font-size: 14px; }
+    .field .hint { color: #899489; font-size: 11px; line-height: 1.4; }
+    .form-subtitle { grid-column: 1 / -1; font-size: 11px; color: #738375; text-transform: uppercase; font-weight: 740; letter-spacing: .1em; padding-top: 5px; }
+    .dialog-actions { border-top: 1px solid #e6ebe5; padding: 16px 26px; display: flex; justify-content: flex-end; gap: 9px; }
+    .warning { color: #a44a3d; font-size: 12px; margin-top: 10px; min-height: 16px; }
+    .no-results { padding: 30px; text-align: center; color: var(--muted); font-size: 13px; }
+    @media (max-width: 1060px) { .plan-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .meal:last-child { grid-column: 1 / -1; } }
+    @media (max-width: 690px) {
+      .shell { padding: 20px 14px 48px; }
+      .topline { align-items: flex-start; }
+      .top-actions { width: 100%; }
+      .plan-grid { grid-template-columns: minmax(0, 1fr); gap: 13px; }
+      .meal:last-child { grid-column: auto; }
+      .catalog { margin-top: 19px; }
+      .catalog-head { padding: 19px 17px; }
+      .catalog-actions { width: 100%; }
+      .search { width: 100%; }
+      .catalog-footer { padding: 12px 17px; }
+      .dialog-head, .dialog-body, .dialog-actions { padding-left: 18px; padding-right: 18px; }
+      .form-grid { gap: 12px; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topline">
+      <div class="identity">
+        <div class="mark" aria-hidden="true">W</div>
+        <div>
+          <div class="brand">Wellspan</div>
+          <div style="font-size:12px;color:#738276;margin-top:3px">Your everyday nutrition blueprint</div>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button class="button" id="export-button" type="button">↓ Export backup</button>
+        <button class="button" id="import-button" type="button">↑ Import backup</button>
+        <button class="button ghost danger" id="reset-button" type="button">Reset</button>
+        <input id="import-file" type="file" accept=".json,application/json" hidden>
+      </div>
+    </header>
+
+    <section aria-label="Your usual meal plan">
+      <div class="intro">
+        <div>
+          <div class="eyebrow">At a glance · not a daily log</div>
+          <h1>A blueprint for your usual meals.</h1>
+          <p class="lede">One food = your own typical serving. Edit its nutrients in the library, then add it to any meal.</p>
+        </div>
+        <div id="plan-summary" class="summary-strip" aria-live="polite"></div>
+      </div>
+      <div id="meal-grid" class="plan-grid"></div>
+    </section>
+
+    <section class="catalog" aria-labelledby="library-title">
+      <div class="catalog-head">
+        <div>
+          <div class="eyebrow">Your personal reference</div>
+          <h2 class="section-title" id="library-title">Food master list <span id="food-count" style="font-weight:480;color:#839188"></span></h2>
+          <p class="lede">All nutritional values refer to the portion you normally eat. Leave a field blank until you know it; blank is not zero.</p>
+        </div>
+        <div class="catalog-actions">
+          <input class="search" id="food-search" type="search" placeholder="Search foods…" aria-label="Search master food list">
+          <button class="button primary" id="new-food-button" type="button">+ Add food</button>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table aria-label="Master food list">
+          <thead>
+            <tr>
+              <th>Food</th>
+              <th>Calories</th>
+              <th>Protein</th>
+              <th>Carbs</th>
+              <th>Fat</th>
+              <th>Sat. fat</th>
+              <th>Fiber</th>
+              <th>Sodium</th>
+              <th>Salt eq.</th>
+              <th style="text-align:right">Edit</th>
+            </tr>
+          </thead>
+          <tbody id="food-table"></tbody>
+        </table>
+      </div>
+      <div class="catalog-footer">
+        <span id="catalog-status"></span>
+        <span>Salt equivalent (g) = sodium (mg) × 0.0025</span>
+      </div>
+    </section>
+    <footer class="site-footer">Everything stays in this browser. No account, sync, tracking, or server. Export a backup before clearing browser data or switching devices.</footer>
+  </main>
+
+  <dialog id="food-dialog" aria-labelledby="dialog-title">
+    <form id="food-form" novalidate>
+      <div class="dialog-head">
+        <h3 id="dialog-title">Add food</h3>
+        <p>Enter values for the portion you naturally eat. There are no serving sizes, multipliers, or quantity fields.</p>
+      </div>
+      <div class="dialog-body">
+        <div class="form-grid">
+          <div class="field full">
+            <label for="field-name">Food name</label>
+            <input id="field-name" name="name" maxlength="100" required placeholder="e.g. Soy milk" autocomplete="off">
+          </div>
+          <div class="form-subtitle">Energy and macronutrients</div>
+          <div class="field"><label for="field-calories">Calories (kcal)</label><input id="field-calories" name="calories" type="number" min="0" step="any" inputmode="decimal" placeholder="Not entered"></div>
+          <div class="field"><label for="field-protein">Protein (g)</label><input id="field-protein" name="protein" type="number" min="0" step="any" inputmode="decimal" placeholder="Not entered"></div>
+          <div class="field"><label for="field-carbs">Carbohydrates (g)</label><input id="field-carbs" name="carbs" type="number" min="0" step="any" inputmode="decimal" placeholder="Not entered"></div>
+          <div class="field"><label for="field-fat">Total fat (g)</label><input id="field-fat" name="fat" type="number" min="0" step="any" inputmode="decimal" placeholder="Not entered"></div>
+          <div class="field"><label for="field-satFat">Saturated fat (g)</label><input id="field-satFat" name="satFat" type="number" min="0" step="any" inputmode="decimal" placeholder="Not entered"></div>
+          <div class="field"><label for="field-fiber">Fiber (g)</label><input id="field-fiber" name="fiber" type="number" min="0" step="any" inputmode="decimal" placeholder="Not entered"></div>
+          <div class="form-subtitle">Other useful nutrients</div>
+          <div class="field"><label for="field-sugars">Total sugars (g)</label><input id="field-sugars" name="sugars" type="number" min="0" step="any" inputmode="decimal" placeholder="Not entered"></div>
+          <div class="field"><label for="field-cholesterol">Cholesterol (mg)</label><input id="field-cholesterol" name="cholesterol" type="number" min="0" step="any" inputmode="decimal" placeholder="Not entered"></div>
+          <div class="field"><label for="field-sodium">Sodium (mg)</label><input id="field-sodium" name="sodium" type="number" min="0" step="any" inputmode="decimal" placeholder="Not entered"></div>
+          <div class="field"><label for="field-salt">Salt equivalent (g)</label><input id="field-salt" type="number" min="0" step="any" inputmode="decimal" placeholder="Auto-converts to sodium"><span class="hint">Edit either sodium or salt; the other field updates automatically.</span></div>
+        </div>
+        <div id="form-warning" class="warning" role="alert"></div>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="button" id="cancel-button">Cancel</button>
+        <button type="submit" class="button primary" id="save-food-button">Save food</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const KEY = 'wellspan-foodboard-v1';
+      const nutrientKeys = ['calories', 'protein', 'carbs', 'fat', 'satFat', 'fiber', 'sugars', 'sodium', 'cholesterol'];
+      const mealInfo = [
+        { key: 'breakfast', name: 'Breakfast', subtitle: 'Your usual morning meal', color: '#e3a760' },
+        { key: 'lunch', name: 'Lunch', subtitle: 'Your usual midday meal', color: '#74a38a' },
+        { key: 'dinner', name: 'Dinner', subtitle: 'Your usual evening meal', color: '#8998c1' }
+      ];
+      const seedNames = [
+        'Walnuts', 'Almonds', 'Cashews', 'Pistachios', 'Pine nuts', 'Peanuts', 'Avocado',
+        'Extra virgin olive oil (EVOO)', 'Chicken breast', 'Salmon', 'Egg whites',
+        'Soy milk', 'Sprouted rolled oats', 'Quinoa', 'Black beans', 'Chickpeas',
+        'Whole wheat bread', 'Unleavened mini loaf', '0% fat yogurt', 'Apples',
+        'Broccoli', 'Carrots', 'Plant protein', 'Green peas', 'Eggplant', 'Green tea',
+        'Lemon juice', 'Red lentils', 'Tofu', 'Olives'
+      ];
+      const $ = (id) => document.getElementById(id);
+      const create = (tag, className, textValue) => {
+        const el = document.createElement(tag);
+        if (className) el.className = className;
+        if (textValue !== undefined) el.textContent = textValue;
+        return el;
+      };
+      const emptyValues = () => Object.fromEntries(nutrientKeys.map(key => [key, null]));
+      const freshState = () => ({
+        version: 1,
+        foods: seedNames.map((name, index) => ({ id: `starter-${index + 1}`, name, nutrients: emptyValues() })),
+        meals: { breakfast: [], lunch: [], dinner: [] }
+      });
+      const valueOrNull = (raw) => {
+        if (raw === null || raw === undefined || raw === '') return null;
+        if (typeof raw === 'string' && raw.trim() === '') return null;
+        const number = Number(raw);
+        return Number.isFinite(number) && number >= 0 && number <= 1000000 ? number : null;
+      };
+      const format = (value, maxDigits = 1) => Number(value).toLocaleString(undefined, { maximumFractionDigits: maxDigits });
+      const formatField = (value, unit = '', maxDigits = 1) => value === null ? '—' : `${format(value, maxDigits)}${unit ? ` ${unit}` : ''}`;
+      const itemId = () => 'food-' + (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+      const isRecord = (value) => value && typeof value === 'object' && !Array.isArray(value);
+
+      function normalizeState(candidate) {
+        if (!isRecord(candidate) || !Array.isArray(candidate.foods) || !isRecord(candidate.meals)) throw new Error('This is not a valid Wellspan Foodboard backup.');
+        if (candidate.foods.length > 5000) throw new Error('Food library exceeds the supported size.');
+        const usedIds = new Set();
+        const usedNames = new Set();
+        const foods = candidate.foods.map((food) => {
+          if (!isRecord(food) || typeof food.name !== 'string' || typeof food.id !== 'string') throw new Error('A food entry is invalid.');
+          const name = food.name.trim();
+          if (!name || name.length > 100 || food.id.length > 150 || !food.id || usedIds.has(food.id) || usedNames.has(name.toLocaleLowerCase())) throw new Error('Food names or identifiers are missing or duplicated.');
+          usedIds.add(food.id);
+          usedNames.add(name.toLocaleLowerCase());
+          const nutrients = {};
+          for (const key of nutrientKeys) {
+            const raw = isRecord(food.nutrients) ? food.nutrients[key] : null;
+            if (raw !== null && raw !== undefined && raw !== '' && valueOrNull(raw) === null) throw new Error(`Invalid nutrient value for ${name}.`);
+            nutrients[key] = valueOrNull(raw);
+          }
+          return { id: food.id, name, nutrients };
+        });
+        const meals = {};
+        for (const { key } of mealInfo) {
+          const ids = candidate.meals[key];
+          if (!Array.isArray(ids) || ids.length > 5000) throw new Error(`Invalid ${key} food selections.`);
+          if (ids.some(id => typeof id !== 'string' || !usedIds.has(id)) || new Set(ids).size !== ids.length) throw new Error(`Invalid ${key} food references.`);
+          meals[key] = [...ids];
+        }
+        return { version: 1, foods, meals };
+      }
+
+      let state;
+      let editingId = null;
+      let toastTimeout;
+      try {
+        const stored = localStorage.getItem(KEY);
+        state = stored ? normalizeState(JSON.parse(stored)) : freshState();
+      } catch (error) {
+        state = freshState();
+        setTimeout(() => showToast('Could not load saved data. Import your most recent backup if needed.'), 150);
+      }
+
+      function persist() {
+        try {
+          localStorage.setItem(KEY, JSON.stringify(state));
+          return true;
+        } catch {
+          showToast('Local saving failed. Export a backup and check browser storage permissions.');
+          return false;
+        }
+      }
+      function showToast(message) {
+        const toast = $('toast');
+        toast.textContent = message;
+        toast.hidden = false;
+        clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => { toast.hidden = true; }, 4400);
+      }
+      function changeState(change) {
+        change();
+        persist();
+        render();
+      }
+      const getFood = (id) => state.foods.find(food => food.id === id);
+      const getFoods = (mealKey) => state.meals[mealKey].map(getFood).filter(Boolean);
+      const getSummary = (foods) => {
+        const total = {};
+        const missing = {};
+        for (const key of nutrientKeys) {
+          total[key] = foods.reduce((sum, food) => sum + (food.nutrients[key] ?? 0), 0);
+          missing[key] = foods.filter(food => food.nutrients[key] === null).length;
+        }
+        return { total, missing, count: foods.length };
+      };
+      function textValue(summary, key, digits = 1) {
+        if (!summary.count || summary.missing[key] === summary.count) return '—';
+        return format(summary.total[key], digits);
+      }
+      function valueNode(summary, key, digits = 1, unit = '') {
+        const node = create('div', 'value');
+        node.append(document.createTextNode(textValue(summary, key, digits)));
+        if (summary.count && summary.missing[key] > 0 && summary.missing[key] !== summary.count) {
+          const partial = create('span', 'partial', '†');
+          partial.title = `Partial total: ${summary.missing[key]} food(s) missing this value`;
+          node.append(partial);
+        }
+        if (unit) node.append(create('span', 'unit', unit));
+        return node;
+      }
+      function nutrientCell(summary, key, label, unit = 'g', digits = 1) {
+        const node = create('div', 'nutrient');
+        node.append(valueNode(summary, key, digits, unit));
+        node.append(create('div', 'label', label));
+        return node;
+      }
+      function saltCell(summary) {
+        const node = create('div', 'nutrient');
+        const value = summary.count && summary.missing.sodium === summary.count ? '—' : format(summary.total.sodium * 0.0025, 3);
+        const partial = summary.missing.sodium > 0 && summary.missing.sodium < summary.count ? '†' : '';
+        const amount = create('div', 'value', `${value}${partial}`);
+        amount.append(create('span', 'unit', 'g'));
+        node.append(amount, create('div', 'label', 'Salt equivalent'));
+        return node;
+      }
+      function renderSummary() {
+        const all = mealInfo.flatMap(({ key }) => getFoods(key));
+        const summary = getSummary(all);
+        const container = $('plan-summary');
+        container.replaceChildren();
+        const intro = create('div');
+        intro.append(create('div', '', 'Typical plan total'));
+        const kcal = create('strong', '', textValue(summary, 'calories', 0));
+        if (summary.missing.calories > 0 && summary.missing.calories < summary.count) kcal.append(create('span', 'partial', '†'));
+        intro.append(kcal, document.createTextNode(' kcal'));
+        container.append(intro, create('span', 'vdivider'));
+        const protein = create('div');
+        protein.append(create('div', '', 'Protein'));
+        protein.append(create('strong', '', `${textValue(summary, 'protein')}${summary.missing.protein > 0 && summary.missing.protein < summary.count ? '†' : ''} g`));
+        const sat = create('div');
+        sat.append(create('div', '', 'Saturated fat'));
+        sat.append(create('strong', '', `${textValue(summary, 'satFat')}${summary.missing.satFat > 0 && summary.missing.satFat < summary.count ? '†' : ''} g`));
+        container.append(protein, create('span', 'vdivider'), sat);
+        const missingInSummary = ['calories', 'protein', 'satFat'].some(key => summary.missing[key] > 0);
+        if (missingInSummary) container.title = 'Some selected foods have blank nutrition values. The shown totals include entered values only.';
+        else container.removeAttribute('title');
+      }
+      function renderMeals() {
+        const grid = $('meal-grid');
+        grid.replaceChildren();
+        const availableNames = [...state.foods].sort((a, b) => a.name.localeCompare(b.name));
+        for (const { key, name, subtitle, color } of mealInfo) {
+          const foods = getFoods(key);
+          const summary = getSummary(foods);
+          const section = create('article', 'meal');
+          section.style.setProperty('--meal-color', color);
+          const head = create('div', 'meal-top');
+          head.append(create('h3', 'meal-name', name), create('p', 'meal-subtitle', subtitle));
+          const totals = create('div', 'meal-nutrients');
+          const hero = create('div', 'hero');
+          const kcalNode = create('div');
+          const kcalValue = valueNode(summary, 'calories', 0);
+          kcalValue.className = 'number';
+          kcalNode.append(kcalValue, create('span', 'unit', 'kcal'));
+          const sat = create('div', 'hero-right');
+          sat.append(create('strong', '', `${textValue(summary, 'satFat')}${summary.missing.satFat > 0 && summary.missing.satFat < summary.count ? '†' : ''} g`), create('span', '', 'saturated fat')); 
+          hero.append(kcalNode, sat);
+          const metrics = create('div', 'nutrient-grid');
+          metrics.append(
+            nutrientCell(summary, 'protein', 'Protein'),
+            nutrientCell(summary, 'carbs', 'Carbs'),
+            nutrientCell(summary, 'fat', 'Total fat'),
+            nutrientCell(summary, 'fiber', 'Fiber'),
+            nutrientCell(summary, 'sugars', 'Sugars'),
+            nutrientCell(summary, 'sodium', 'Sodium', 'mg', 0),
+            nutrientCell(summary, 'cholesterol', 'Cholesterol', 'mg', 0),
+            saltCell(summary)
+          );
+          totals.append(hero, metrics);
+          const bottom = create('div', 'meal-foods');
+          bottom.append(create('div', 'food-heading', `Foods · ${foods.length}`));
+          const items = create('ul', 'food-items');
+          if (!foods.length) {
+            const empty = create('li', 'food-empty', 'Nothing added yet. Choose from your food library below.');
+            items.append(empty);
+          }
+          for (const food of foods) {
+            const item = create('li', 'food-item');
+            item.append(create('span', 'food-item-label', food.name));
+            const actions = create('div', 'food-item-actions');
+            actions.append(create('span', 'food-item-kcal', food.nutrients.calories === null ? '— kcal' : `${format(food.nutrients.calories, 0)} kcal`));
+            const edit = create('button', '', '✎');
+            edit.type = 'button';
+            edit.title = `Edit ${food.name} in master list`;
+            edit.setAttribute('aria-label', `Edit ${food.name}`);
+            edit.addEventListener('click', () => openEditor(food.id));
+            const remove = create('button', '', '×');
+            remove.type = 'button';
+            remove.title = `Remove ${food.name} from ${name}`;
+            remove.setAttribute('aria-label', `Remove ${food.name} from ${name}`);
+            remove.addEventListener('click', () => changeState(() => { state.meals[key] = state.meals[key].filter(id => id !== food.id); }));
+            actions.append(edit, remove);
+            item.append(actions);
+            items.append(item);
+          }
+          const picker = create('div', 'add-row');
+          const select = create('select', 'select');
+          select.setAttribute('aria-label', `Choose a food for ${name}`);
+          const placeholder = create('option', '', 'Choose a food…');
+          placeholder.value = '';
+          select.append(placeholder);
+          const candidates = availableNames.filter(food => !state.meals[key].includes(food.id));
+          for (const food of candidates) {
+            const option = create('option', '', food.name);
+            option.value = food.id;
+            select.append(option);
+          }
+          const add = create('button', 'button primary', '+ Add');
+          add.type = 'button';
+          add.disabled = true;
+          select.addEventListener('change', () => { add.disabled = !select.value; });
+          add.addEventListener('click', () => {
+            const selectedId = select.value;
+            if (!selectedId || !getFood(selectedId) || state.meals[key].includes(selectedId)) return;
+            changeState(() => { state.meals[key].push(selectedId); });
+          });
+          picker.append(select, add);
+          bottom.append(items, picker);
+          if (foods.some(food => nutrientKeys.some(nutrient => food.nutrients[nutrient] === null))) {
+            bottom.append(create('p', 'partial-note', '† Partial totals use entered values only. “—” means no value is entered, not zero.'));
+          }
+          section.append(head, totals, bottom);
+          grid.append(section);
+        }
+      }
+      function renderCatalog() {
+        const tbody = $('food-table');
+        const search = $('food-search').value.trim().toLocaleLowerCase();
+        const foods = state.foods.filter(food => food.name.toLocaleLowerCase().includes(search)).sort((a, b) => a.name.localeCompare(b.name));
+        tbody.replaceChildren();
+        for (const food of foods) {
+          const row = create('tr');
+          row.append(create('td', 'food-name-cell', food.name));
+          const fields = [
+            ['calories', ' kcal', 0], ['protein', ' g', 1], ['carbs', ' g', 1],
+            ['fat', ' g', 1], ['satFat', ' g', 1], ['fiber', ' g', 1], ['sodium', ' mg', 0]
+          ];
+          for (const [key, unit, digits] of fields) {
+            const value = food.nutrients[key];
+            const cell = create('td', value === null ? 'none' : '', formatField(value, unit, digits));
+            row.append(cell);
+          }
+          const sodium = food.nutrients.sodium;
+          row.append(create('td', sodium === null ? 'none' : '', sodium === null ? '—' : `${format(sodium * 0.0025, 3)} g`));
+          const actionsCell = create('td');
+          const actions = create('div', 'food-actions');
+          const edit = create('button', 'button small', 'Edit');
+          edit.type = 'button';
+          edit.setAttribute('aria-label', `Edit ${food.name}`);
+          edit.addEventListener('click', () => openEditor(food.id));
+          const del = create('button', 'button small danger', 'Delete');
+          del.type = 'button';
+          del.setAttribute('aria-label', `Delete ${food.name}`);
+          del.addEventListener('click', () => deleteFood(food.id));
+          actions.append(edit, del);
+          actionsCell.append(actions);
+          row.append(actionsCell);
+          tbody.append(row);
+        }
+        if (!foods.length) {
+          const row = create('tr');
+          const cell = create('td', 'no-results', state.foods.length ? 'No matching foods.' : 'Your master list is empty. Add a food to begin.');
+          cell.colSpan = 10;
+          row.append(cell);
+          tbody.append(row);
+        }
+        $('food-count').textContent = `(${state.foods.length})`;
+        const entered = state.foods.filter(food => nutrientKeys.some(key => food.nutrients[key] !== null)).length;
+        $('catalog-status').textContent = `${entered} of ${state.foods.length} foods have at least one nutrition value · ${foods.length} shown`;
+      }
+      function render() { renderSummary(); renderMeals(); renderCatalog(); }
+      function openEditor(id = null) {
+        editingId = id;
+        const food = id ? getFood(id) : null;
+        if (id && !food) return;
+        $('food-form').reset();
+        $('form-warning').textContent = '';
+        $('dialog-title').textContent = food ? `Edit ${food.name}` : 'Add food';
+        $('save-food-button').textContent = food ? 'Save changes' : 'Add to master list';
+        $('field-name').value = food?.name ?? '';
+        for (const key of nutrientKeys) $(fieldId(key)).value = food?.nutrients[key] ?? '';
+        syncSaltFromSodium();
+        $('food-dialog').showModal();
+        $('field-name').focus();
+      }
+      const fieldId = key => 'field-' + key;
+      function syncSaltFromSodium() {
+        const raw = $('field-sodium').value;
+        $('field-salt').value = raw === '' ? '' : String(Number((Number(raw) * 0.0025).toFixed(6)));
+      }
+      function syncSodiumFromSalt() {
+        const raw = $('field-salt').value;
+        $('field-sodium').value = raw === '' ? '' : String(Number((Number(raw) * 400).toFixed(6)));
+      }
+      function saveEditor(event) {
+        event.preventDefault();
+        const name = $('field-name').value.trim();
+        if (!name || name.length > 100) { $('form-warning').textContent = 'Enter a food name (up to 100 characters).'; return; }
+        if (state.foods.some(food => food.id !== editingId && food.name.toLocaleLowerCase() === name.toLocaleLowerCase())) {
+          $('form-warning').textContent = 'That food is already in the master list.';
+          return;
+        }
+        const nutrients = {};
+        for (const key of nutrientKeys) {
+          const input = $(fieldId(key));
+          const raw = input.value;
+          const value = valueOrNull(raw);
+          if (raw !== '' && value === null) { $('form-warning').textContent = 'Nutrients must be valid, nonnegative numbers.'; input.focus(); return; }
+          nutrients[key] = value;
+        }
+        const original = editingId ? getFood(editingId) : null;
+        changeState(() => {
+          if (original) { original.name = name; original.nutrients = nutrients; }
+          else state.foods.push({ id: itemId(), name, nutrients });
+        });
+        $('food-dialog').close();
+        showToast(original ? `${name} updated in every meal.` : `${name} added to your master list.`);
+      }
+      function deleteFood(id) {
+        const food = getFood(id);
+        if (!food) return;
+        const used = mealInfo.filter(({ key }) => state.meals[key].includes(id)).map(({ name }) => name);
+        const suffix = used.length ? ` It will also be removed from ${used.join(', ')}.` : '';
+        if (!confirm(`Delete ${food.name} from the master list?${suffix}`)) return;
+        changeState(() => {
+          state.foods = state.foods.filter(entry => entry.id !== id);
+          for (const { key } of mealInfo) state.meals[key] = state.meals[key].filter(item => item !== id);
+        });
+        showToast(`${food.name} deleted.`);
+      }
+      function exportBackup() {
+        const data = JSON.stringify({ ...state, exportedAt: new Date().toISOString(), app: 'Wellspan Foodboard' }, null, 2);
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const anchor = create('a');
+        anchor.href = url;
+        anchor.download = `wellspan-foodboard-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.append(anchor);
+        anchor.click();
+        anchor.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1200);
+        showToast('Backup exported. Keep the JSON file somewhere safe.');
+      }
+      async function importBackup(event) {
+        const input = event.currentTarget;
+        const file = input.files?.[0];
+        input.value = '';
+        if (!file) return;
+        if (file.size > 2_000_000) { showToast('Backup is too large (2 MB maximum).'); return; }
+        let candidate;
+        try { candidate = normalizeState(JSON.parse(await file.text())); }
+        catch (error) { showToast(error?.message || 'Could not read the backup.'); return; }
+        if (!confirm(`Replace the current master list and meal plans with ${candidate.foods.length} foods from this backup? Export your current data first if you want to keep it.`)) return;
+        state = candidate;
+        $('food-search').value = '';
+        persist();
+        render();
+        showToast('Backup restored.');
+      }
+      function reset() {
+        if (!confirm('Reset the whole Foodboard? This clears all nutrition edits and meal selections, and restores the starter food list. Export a backup first if you want to keep this version.')) return;
+        state = freshState();
+        $('food-search').value = '';
+        persist();
+        render();
+        showToast('Foodboard reset to the starter list.');
+      }
+      $('new-food-button').addEventListener('click', () => openEditor());
+      $('food-search').addEventListener('input', renderCatalog);
+      $('food-form').addEventListener('submit', saveEditor);
+      $('cancel-button').addEventListener('click', () => $('food-dialog').close());
+      $('field-sodium').addEventListener('input', syncSaltFromSodium);
+      $('field-salt').addEventListener('input', syncSodiumFromSalt);
+      $('export-button').addEventListener('click', exportBackup);
+      $('import-button').addEventListener('click', () => $('import-file').click());
+      $('import-file').addEventListener('change', importBackup);
+      $('reset-button').addEventListener('click', reset);
+      window.addEventListener('storage', event => {
+        if (event.key !== KEY || $('food-dialog').open) return;
+        try {
+          state = event.newValue ? normalizeState(JSON.parse(event.newValue)) : freshState();
+          render();
+        } catch { showToast('Another tab changed storage, but its data could not be loaded.'); }
+      });
+      render();
+      try { if (localStorage.getItem(KEY) === null) persist(); }
+      catch { showToast('Browser storage is unavailable. Export backups because changes will not persist.'); }
+    })();
+  </script>
+</body>
+</html>
