@@ -1,4 +1,7 @@
 import { KEY, nutrientKeys, mealInfo, freshState, normalizeNotes, valueOrNull, format, formatField, itemId, normalizeState } from './model.js';
+import { OfflineStore } from './offline-store.js';
+import { readRemote, createSyncEngine } from './offline-sync.js';
+import { sameBoard } from './operations.js';
 
 (() => {
       'use strict';
@@ -12,24 +15,41 @@ import { KEY, nutrientKeys, mealInfo, freshState, normalizeNotes, valueOrNull, f
       };
       const ICON_EDIT = '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.5 2.5l2 2L5 13l-2.6.7.7-2.6z"/></svg>';
       const ICON_REMOVE = '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
-      let state;
+      let state = freshState();
+      let workspace = null;
+      let syncEngine = null;
+      let syncResult = 'Starting';
+      let pendingRemote = null;
+      let legacyBoard = null;
+      let channel = null;
       let editingId = null;
+      let editingOriginal = null;
       let dragSource = null;
       let toastTimeout;
-      try {
-        const stored = localStorage.getItem(KEY);
-        state = stored ? normalizeState(JSON.parse(stored)) : freshState();
-      } catch (error) {
-        state = freshState();
-        setTimeout(() => showToast('Could not load saved data. Import your most recent backup if needed.'), 150);
-      }
-
-      function persist() {
+      const notifyTabs = () => channel?.postMessage('updated');
+      const retrySync = () => {
+        if (!syncEngine) return;
+        syncEngine.sync().catch(error => {
+          syncResult = 'error: ' + error.message;
+          refreshStatus();
+        });
+      };
+      const readableError = error => error?.message || 'Could not save this change';
+      async function changeState(operation) {
+        if (!workspace) {
+          showToast('Finish the one-time setup before editing.');
+          return false;
+        }
         try {
-          localStorage.setItem(KEY, JSON.stringify(state));
+          const current = await workspace.apply(operation);
+          state = current.projection;
+          render();
+          refreshStatus();
+          notifyTabs();
+          retrySync();
           return true;
-        } catch {
-          showToast('Local saving failed. Export a backup and check browser storage permissions.');
+        } catch (error) {
+          showToast(readableError(error));
           return false;
         }
       }
@@ -40,18 +60,8 @@ import { KEY, nutrientKeys, mealInfo, freshState, normalizeNotes, valueOrNull, f
         clearTimeout(toastTimeout);
         toastTimeout = setTimeout(() => { toast.hidden = true; }, 4400);
       }
-      function changeState(change) {
-        change();
-        persist();
-        render();
-      }
       function moveFood(mealKey, draggedId, targetId, after) {
-        const order = state.meals[mealKey].filter(id => id !== draggedId);
-        let index = order.indexOf(targetId);
-        if (index === -1) index = order.length;
-        else if (after) index += 1;
-        order.splice(index, 0, draggedId);
-        changeState(() => { state.meals[mealKey] = order; });
+        changeState({ type: 'meal.move', meal: mealKey, id: draggedId, targetId, after });
       }
       const getFood = (id) => state.foods.find(food => food.id === id);
       const getFoods = (mealKey) => state.meals[mealKey].map(getFood).filter(Boolean);
@@ -209,7 +219,7 @@ import { KEY, nutrientKeys, mealInfo, freshState, normalizeNotes, valueOrNull, f
             remove.type = 'button';
             remove.title = `Remove ${food.name} from ${name}`;
             remove.setAttribute('aria-label', `Remove ${food.name} from ${name}`);
-            remove.addEventListener('click', () => changeState(() => { state.meals[key] = state.meals[key].filter(id => id !== food.id); }));
+            remove.addEventListener('click', () => changeState({ type: 'meal.remove', meal: key, id: food.id }));
             actions.append(edit, remove);
             item.append(actions);
             items.append(item);
@@ -233,7 +243,7 @@ import { KEY, nutrientKeys, mealInfo, freshState, normalizeNotes, valueOrNull, f
           add.addEventListener('click', () => {
             const selectedId = select.value;
             if (!selectedId || !getFood(selectedId) || state.meals[key].includes(selectedId)) return;
-            changeState(() => { state.meals[key].push(selectedId); });
+            changeState({ type: 'meal.add', meal: key, id: selectedId });
           });
           picker.append(select, add);
           bottom.append(items, picker);
@@ -339,6 +349,7 @@ import { KEY, nutrientKeys, mealInfo, freshState, normalizeNotes, valueOrNull, f
         editingId = id;
         const food = id ? getFood(id) : null;
         if (id && !food) return;
+        editingOriginal = food ? structuredClone(food) : null;
         $('food-form').reset();
         $('form-warning').textContent = '';
         $('dialog-title').textContent = food ? `Edit ${food.name}` : 'Add food';
@@ -361,7 +372,7 @@ import { KEY, nutrientKeys, mealInfo, freshState, normalizeNotes, valueOrNull, f
         const raw = $('field-salt').value;
         $('field-sodium').value = raw === '' ? '' : String(Number((Number(raw) * 400).toFixed(6)));
       }
-      function saveEditor(event) {
+      async function saveEditor(event) {
         event.preventDefault();
         const name = $('field-name').value.trim();
         if (!name || name.length > 100) { $('form-warning').textContent = 'Enter a food name (up to 100 characters).'; return; }
@@ -378,28 +389,31 @@ import { KEY, nutrientKeys, mealInfo, freshState, normalizeNotes, valueOrNull, f
           nutrients[key] = value;
         }
         const notes = normalizeNotes($('field-notes').value);
-        const original = editingId ? getFood(editingId) : null;
-        changeState(() => {
-          if (original) { original.name = name; original.nutrients = nutrients; original.notes = notes; }
-          else state.foods.push({ id: itemId(), name, nutrients, notes });
-        });
+        const original = editingOriginal;
+        const food = { id: editingId || itemId(), name, nutrients, notes };
+        const save = $('save-food-button');
+        save.disabled = true;
+        const saved = await changeState({ type: 'food.upsert', food, expected: original });
+        save.disabled = false;
+        if (!saved) return;
         $('food-dialog').close();
-        showToast(original ? `${name} updated in every meal.` : `${name} added to your master list.`);
+        showToast(original ? name + ' updated in every meal.' : name + ' added to your master list.');
       }
+
       function deleteFood(id) {
         const food = getFood(id);
         if (!food) return;
         const used = mealInfo.filter(({ key }) => state.meals[key].includes(id)).map(({ name }) => name);
         const suffix = used.length ? ` It will also be removed from ${used.join(', ')}.` : '';
         if (!confirm(`Delete ${food.name} from the master list?${suffix}`)) return;
-        changeState(() => {
-          state.foods = state.foods.filter(entry => entry.id !== id);
-          for (const { key } of mealInfo) state.meals[key] = state.meals[key].filter(item => item !== id);
+        changeState({ type: 'food.delete', id, expected: structuredClone(food) }).then(saved => {
+          if (saved) showToast(food.name + ' deleted.');
         });
-        showToast(`${food.name} deleted.`);
       }
-      function exportBackup() {
-        const data = JSON.stringify({ ...state, exportedAt: new Date().toISOString(), app: 'Wellspan Foodboard' }, null, 2);
+
+      function exportBackup() { exportBoard(state); }
+      function exportBoard(board) {
+        const data = JSON.stringify({ ...board, exportedAt: new Date().toISOString(), app: 'Wellspan Foodboard' }, null, 2);
         const blob = new Blob([data], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const anchor = create('a');
@@ -421,19 +435,19 @@ import { KEY, nutrientKeys, mealInfo, freshState, normalizeNotes, valueOrNull, f
         try { candidate = normalizeState(JSON.parse(await file.text())); }
         catch (error) { showToast(error?.message || 'Could not read the backup.'); return; }
         if (!confirm(`Replace the current master list and meal plans with ${candidate.foods.length} foods from this backup? Export your current data first if you want to keep it.`)) return;
-        state = candidate;
-        $('food-search').value = '';
-        persist();
-        render();
-        showToast('Backup restored.');
+        if (await changeState({ type: 'board.replace', board: candidate })) {
+          $('food-search').value = '';
+          render();
+          showToast('Backup queued for Vega synchronization.');
+        }
       }
-      function reset() {
+      async function reset() {
         if (!confirm('Reset the whole Foodboard? This clears all nutrition edits and meal selections, and restores the starter food list. Export a backup first if you want to keep this version.')) return;
-        state = freshState();
-        $('food-search').value = '';
-        persist();
-        render();
-        showToast('Foodboard reset to the starter list.');
+        if (await changeState({ type: 'board.replace', board: freshState() })) {
+          $('food-search').value = '';
+          render();
+          showToast('Starter list queued for synchronization.');
+        }
       }
       $('new-food-button').addEventListener('click', () => openEditor());
       $('food-search').addEventListener('input', renderCatalog);
@@ -477,14 +491,184 @@ import { KEY, nutrientKeys, mealInfo, freshState, normalizeNotes, valueOrNull, f
       themeToggle.addEventListener('click', () => applyTheme(currentTheme() === 'dark' ? 'light' : 'dark'));
       applyTheme(currentTheme());
       window.addEventListener('storage', event => {
-        if (event.key === THEME_KEY) { applyTheme(event.newValue === 'dark' ? 'dark' : 'light'); return; }
-        if (event.key !== KEY || $('food-dialog').open) return;
-        try {
-          state = event.newValue ? normalizeState(JSON.parse(event.newValue)) : freshState();
-          render();
-        } catch { showToast('Another tab changed storage, but its data could not be loaded.'); }
+        if (event.key === THEME_KEY) applyTheme(event.newValue === 'dark' ? 'dark' : 'light');
       });
+      const status = $('sync-status');
+      const conflictActions = $('sync-conflict');
+      const initButton = $('sync-init');
+      const retryButton = $('sync-retry');
+      function setSyncMessage(message) {
+        syncResult = message;
+        status.textContent = message;
+      }
+      async function refreshStatus() {
+        if (!workspace) {
+          setSyncMessage('Waiting for one-time setup');
+          return;
+        }
+        const record = await workspace.read();
+        if (!record) return;
+        const pending = record.outbox.length;
+        $('sync-panel').hidden = false;
+        conflictActions.hidden = !record.conflict;
+        initButton.hidden = !(record.ack.revision === 0 && pending && !record.bootstrapApproved && !record.conflict);
+        retryButton.hidden = !!record.conflict;
+        if (record.conflict) {
+          setSyncMessage('Conflict: Vega revision ' + record.conflict.revision + ' differs. ' + pending + ' local edit(s) protected.');
+        } else if (record.ack.revision === 0 && !record.bootstrapApproved) {
+          setSyncMessage('Local draft: initialize Vega explicitly when ready. ' + pending + ' edit(s) pending.');
+        } else if (pending) {
+          status.textContent = 'Unsynced: ' + pending + ' local edit(s). ' + syncResult;
+        } else {
+          setSyncMessage('Synced with Vega, revision ' + record.ack.revision + '.');
+        }
+      }
+      async function onWorkspaceChange() {
+        if (!workspace) return;
+        const record = await workspace.read();
+        if (!record) return;
+        if (!$('food-dialog').open) {
+          state = record.projection;
+          render();
+        }
+        await refreshStatus();
+      }
+      async function finishSetup() {
+        $('setup-dialog').close();
+        const record = await workspace.read();
+        state = record.projection;
+        render();
+        await refreshStatus();
+        notifyTabs();
+        retrySync();
+      }
+      async function acceptBoard(board, fromServer = false) {
+        const remote = pendingRemote || { revision: 0, state: null };
+        if (!fromServer && remote.revision > 0 && !sameBoard(board, remote.state)) {
+          if (!confirm('Vega already has different data. This keeps a local conflict draft and does NOT overwrite Vega. Continue?')) return;
+        }
+        let approved = false;
+        if (!fromServer && remote.revision === 0 && pendingRemote) {
+          approved = confirm('Initialize the empty Vega database with this food library? Your old localStorage stays untouched.');
+        }
+        await workspace.initialize(board, remote, approved, !fromServer);
+        await finishSetup();
+      }
+      function loadLegacy() {
+        try {
+          const stored = localStorage.getItem(KEY);
+          return stored ? normalizeState(JSON.parse(stored)) : null;
+        } catch {
+          return null;
+        }
+      }
+      async function oneTimeSetup() {
+        legacyBoard = loadLegacy();
+        try {
+          pendingRemote = await readRemote(fetch);
+        } catch {
+          pendingRemote = null;
+        }
+        $('setup-server').hidden = !(pendingRemote?.revision > 0);
+        $('setup-legacy').hidden = !legacyBoard;
+        $('setup-export').hidden = !legacyBoard;
+        $('setup-info').textContent = pendingRemote?.revision > 0
+          ? 'Vega already has a food library. Using it leaves old browser data untouched. Other choices may require conflict resolution.'
+          : pendingRemote
+            ? 'Vega is empty. Choose which foods will initialize it. Your previous browser data will not be deleted.'
+            : 'Vega is unreachable. Choose a durable offline draft. Server import requires approval after reconnecting.';
+        $('setup-dialog').showModal();
+      }
+      async function start() {
+        try {
+          workspace = await OfflineStore.open();
+          channel = typeof BroadcastChannel === 'function' ? new BroadcastChannel('wellspan-workspace-v1') : null;
+          if (channel) channel.onmessage = () => onWorkspaceChange().catch(error => showToast(readableError(error)));
+          syncEngine = createSyncEngine(workspace, async (message, record) => {
+            syncResult = message;
+            if (record && !$('food-dialog').open) {
+              state = record.projection;
+              render();
+            }
+            await refreshStatus();
+            notifyTabs();
+          });
+          const current = await workspace.read();
+          if (current) {
+            state = current.projection;
+            render();
+            await refreshStatus();
+            retrySync();
+          } else {
+            await oneTimeSetup();
+          }
+          if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
+          }
+        } catch (error) {
+          $('sync-panel').hidden = false;
+          setSyncMessage('Offline storage unavailable: ' + readableError(error) + '. Export old browser data before continuing.');
+          showToast('IndexedDB unavailable. Editing is disabled.');
+        }
+      }
+      $('setup-server').addEventListener('click', async () => {
+        if (pendingRemote?.state) await acceptBoard(pendingRemote.state, true);
+      });
+      $('setup-legacy').addEventListener('click', async () => {
+        if (legacyBoard) await acceptBoard(legacyBoard);
+      });
+      $('setup-starter').addEventListener('click', () => acceptBoard(freshState()));
+      $('setup-file').addEventListener('change', async event => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+        if (file.size > 2_000_000) { showToast('Backup is too large.'); return; }
+        try {
+          await acceptBoard(normalizeState(JSON.parse(await file.text())));
+        } catch (error) {
+          showToast(readableError(error));
+        }
+      });
+      $('setup-export').addEventListener('click', () => {
+        if (!legacyBoard) { showToast('No existing browser data to export.'); return; }
+        exportBoard(legacyBoard);
+      });
+      retryButton.addEventListener('click', retrySync);
+      initButton.addEventListener('click', async () => {
+        if (!confirm('Initialize Vega from your current local draft?')) return;
+        try {
+          await workspace.approveBootstrap();
+          await refreshStatus();
+          notifyTabs();
+          retrySync();
+        } catch (error) { showToast(readableError(error)); }
+      });
+      $('sync-use-server').addEventListener('click', async () => {
+        if (!confirm('Discard pending local edits and use Vega data? Export a backup first if you need the edits.')) return;
+        try {
+          await workspace.useServer();
+          await onWorkspaceChange();
+          notifyTabs();
+          retrySync();
+        } catch (error) { showToast(readableError(error)); }
+      });
+      $('sync-keep-local').addEventListener('click', async () => {
+        if (!confirm('Replace Vega data with the local draft? This deliberately overwrites Vega and may affect other devices.')) return;
+        try {
+          await workspace.keepLocal();
+          await onWorkspaceChange();
+          notifyTabs();
+          retrySync();
+        } catch (error) { showToast(readableError(error)); }
+      });
+      window.addEventListener('online', retrySync);
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+          onWorkspaceChange().catch(() => {});
+          retrySync();
+        }
+      });
+      window.setInterval(retrySync, 45000);
       render();
-      try { if (localStorage.getItem(KEY) === null) persist(); }
-      catch { showToast('Browser storage is unavailable. Export backups because changes will not persist.'); }
+      start();
     })();
