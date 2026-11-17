@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"io"
 	"log"
 	"net/http"
 	"time"
@@ -14,7 +15,24 @@ func main() {
 	listen := flag.String("listen", ":8080", "HTTP listen address")
 	database := flag.String("db", "/data/wellspan.sqlite", "persistent SQLite database path")
 	staticDir := flag.String("static", "/app", "path to frontend files")
+	healthcheck := flag.Bool("healthcheck", false, "probe local HTTP health endpoint")
 	flag.Parse()
+
+	if *healthcheck {
+		client := &http.Client{Timeout: 3 * time.Second}
+		resp, err := client.Get("http://127.0.0.1:8080/health")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			log.Fatalf("healthcheck status: %d", resp.StatusCode)
+		}
+		if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 
 	db, err := store.Open(*database)
 	if err != nil {
