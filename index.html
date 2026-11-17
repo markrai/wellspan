@@ -40,8 +40,8 @@
     button, input, select { font: inherit; }
     button { cursor: pointer; }
     button:disabled { cursor: not-allowed; opacity: .45; }
-    button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
-    input, select, dialog { caret-color: var(--green-deep); }
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+    input, select, textarea, dialog { caret-color: var(--green-deep); }
     .skip { position: absolute; left: 16px; top: -48px; z-index: 200; background: var(--green-deep); color: #fff; font-size: 13px; font-weight: 650; padding: 10px 16px; border-radius: 8px; text-decoration: none; transition: top .18s ease-out; }
     .skip:focus-visible { top: 12px; color: #fff; }
     .shell { max-width: 1440px; margin: 0 auto; padding: 32px 28px 72px; }
@@ -96,7 +96,8 @@
     .food-item button svg { display: block; }
     .food-empty { display: grid; place-items: center; border: 1px dashed #c3cec1; border-radius: 9px; padding: 18px 10px; color: var(--muted); font-size: 12px; line-height: 1.5; text-align: center; }
     .add-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
-    .select, .search, .field input { width: 100%; border: 1px solid #c4c0a8; border-radius: 8px; background: #fdfaf1; color: var(--ink); height: 38px; padding: 7px 11px; font-size: 13px; }
+    .select, .search, .field input, .field textarea { width: 100%; border: 1px solid #c4c0a8; border-radius: 8px; background: #fdfaf1; color: var(--ink); height: 38px; padding: 7px 11px; font-size: 13px; }
+    .field textarea { height: auto; min-height: 76px; resize: vertical; line-height: 1.5; font: inherit; }
     .select { text-overflow: ellipsis; }
     .partial-note { margin-top: 12px; font-size: 12px; line-height: 1.5; color: #6d4c1c; }
     .catalog { background: #fdfaf1; border-radius: 14px; border: 1px solid var(--border); margin-top: 28px; overflow: hidden; }
@@ -129,7 +130,7 @@
     .field.full { grid-column: 1 / -1; }
     .field label { font-size: 12px; color: #3d4f45; font-weight: 650; }
     .field input { height: 41px; font-size: 14px; }
-    .field input::placeholder { color: #5b6d62; opacity: 1; }
+    .field input::placeholder, .field textarea::placeholder { color: #5b6d62; opacity: 1; }
     .field .hint { color: var(--muted); font-size: 12px; line-height: 1.45; }
     .field .hint.duplicate-hint { color: #8f352b; font-weight: 600; }
     #field-name[aria-invalid="true"] { border-color: #b0493d; }
@@ -201,8 +202,8 @@
     [data-theme="dark"] .food-item button { background: #222b24; border-color: transparent; color: #b9c8bf; }
     [data-theme="dark"] .food-item button:hover { background: #3a2622; color: #f0a49a; }
     [data-theme="dark"] .food-empty { border-color: #3a463c; color: var(--muted); }
-    [data-theme="dark"] .select, [data-theme="dark"] .search, [data-theme="dark"] .field input { background: #182019; border-color: #3a463c; color: var(--ink); }
-    [data-theme="dark"] .field input::placeholder { color: #8fa39a; }
+    [data-theme="dark"] .select, [data-theme="dark"] .search, [data-theme="dark"] .field input, [data-theme="dark"] .field textarea { background: #182019; border-color: #3a463c; color: var(--ink); }
+    [data-theme="dark"] .field input::placeholder, [data-theme="dark"] .field textarea::placeholder { color: #8fa39a; }
     [data-theme="dark"] .field label { color: #c3d2c9; }
     [data-theme="dark"] th { background: #182019; color: #a9bcb1; border-color: #2b352e; }
     [data-theme="dark"] td { border-color: #202823; color: #cfdbd3; }
@@ -299,6 +300,8 @@
           <div class="field"><label for="field-cholesterol">Cholesterol (mg)</label><input id="field-cholesterol" name="cholesterol" type="number" min="0" step="any" inputmode="decimal" placeholder="Not entered"></div>
           <div class="field"><label for="field-sodium">Sodium (mg)</label><input id="field-sodium" name="sodium" type="number" min="0" step="any" inputmode="decimal" placeholder="Not entered"></div>
           <div class="field"><label for="field-salt">Salt equivalent (g)</label><input id="field-salt" type="number" min="0" step="any" inputmode="decimal" placeholder="Auto-converts to sodium"><span class="hint">Edit either sodium or salt; the other field updates automatically.</span></div>
+          <div class="form-subtitle">Notes</div>
+          <div class="field full"><label for="field-notes">Food notes</label><textarea id="field-notes" name="notes" maxlength="2000" rows="3" placeholder="Freestyle notes for this food…"></textarea></div>
         </div>
         <div id="form-warning" class="warning" role="alert"></div>
       </div>
@@ -340,9 +343,15 @@
       const ICON_EDIT = '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.5 2.5l2 2L5 13l-2.6.7.7-2.6z"/></svg>';
       const ICON_REMOVE = '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
       const emptyValues = () => Object.fromEntries(nutrientKeys.map(key => [key, null]));
+      const normalizeNotes = (raw) => {
+        if (raw === null || raw === undefined) return '';
+        if (typeof raw !== 'string') throw new Error('Invalid food notes.');
+        if (raw.length > 2000) throw new Error('Food notes are too long.');
+        return raw.trim() === '' ? '' : raw.replace(/\r\n/g, '\n').trim().slice(0, 2000);
+      };
       const freshState = () => ({
         version: 1,
-        foods: seedNames.map((name, index) => ({ id: `starter-${index + 1}`, name, nutrients: emptyValues() })),
+        foods: seedNames.map((name, index) => ({ id: `starter-${index + 1}`, name, nutrients: emptyValues(), notes: '' })),
         meals: { breakfast: [], lunch: [], dinner: [] }
       });
       const valueOrNull = (raw) => {
@@ -373,7 +382,7 @@
             if (raw !== null && raw !== undefined && raw !== '' && valueOrNull(raw) === null) throw new Error(`Invalid nutrient value for ${name}.`);
             nutrients[key] = valueOrNull(raw);
           }
-          return { id: food.id, name, nutrients };
+          return { id: food.id, name, nutrients, notes: normalizeNotes(food.notes) };
         });
         const meals = {};
         for (const { key } of mealInfo) {
@@ -484,11 +493,17 @@
         const sat = create('div');
         sat.append(create('div', '', 'Saturated fat'));
         sat.append(create('strong', '', `${textValue(summary, 'satFat')}${summary.missing.satFat > 0 && summary.missing.satFat < summary.count ? '†' : ''} g`));
+        const carbs = create('div');
+        carbs.append(create('div', '', 'Carbs'));
+        carbs.append(create('strong', '', `${textValue(summary, 'carbs')}${summary.missing.carbs > 0 && summary.missing.carbs < summary.count ? '†' : ''} g`));
         const sodium = create('div');
         sodium.append(create('div', '', 'Sodium'));
         sodium.append(create('strong', '', `${textValue(summary, 'sodium', 0)}${summary.missing.sodium > 0 && summary.missing.sodium < summary.count ? '†' : ''} mg`));
-        container.append(protein, create('span', 'vdivider'), sat, create('span', 'vdivider'), sodium);
-        const missingInSummary = ['calories', 'protein', 'satFat', 'sodium'].some(key => summary.missing[key] > 0);
+        const sugars = create('div');
+        sugars.append(create('div', '', 'Sugars'));
+        sugars.append(create('strong', '', `${textValue(summary, 'sugars')}${summary.missing.sugars > 0 && summary.missing.sugars < summary.count ? '†' : ''} g`));
+        container.append(protein, create('span', 'vdivider'), sat, create('span', 'vdivider'), carbs, create('span', 'vdivider'), sodium, create('span', 'vdivider'), sugars);
+        const missingInSummary = ['calories', 'protein', 'satFat', 'carbs', 'sodium', 'sugars'].some(key => summary.missing[key] > 0);
         if (missingInSummary) container.title = 'Some selected foods have blank nutrition values. The shown totals include entered values only.';
         else container.removeAttribute('title');
       }
@@ -712,6 +727,7 @@
         $('save-food-button').textContent = food ? 'Save changes' : 'Add to master list';
         $('field-name').value = food?.name ?? '';
         for (const key of nutrientKeys) $(fieldId(key)).value = food?.nutrients[key] ?? '';
+        $('field-notes').value = food?.notes ?? '';
         syncSaltFromSodium();
         checkNameDuplicate();
         updateGhost();
@@ -743,10 +759,11 @@
           if (raw !== '' && value === null) { $('form-warning').textContent = 'Nutrients must be valid, nonnegative numbers.'; input.focus(); return; }
           nutrients[key] = value;
         }
+        const notes = normalizeNotes($('field-notes').value);
         const original = editingId ? getFood(editingId) : null;
         changeState(() => {
-          if (original) { original.name = name; original.nutrients = nutrients; }
-          else state.foods.push({ id: itemId(), name, nutrients });
+          if (original) { original.name = name; original.nutrients = nutrients; original.notes = notes; }
+          else state.foods.push({ id: itemId(), name, nutrients, notes });
         });
         $('food-dialog').close();
         showToast(original ? `${name} updated in every meal.` : `${name} added to your master list.`);
