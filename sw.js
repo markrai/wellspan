@@ -1,4 +1,4 @@
-const CACHE = 'wellspan-app-shell-v3';
+const CACHE = 'wellspan-app-shell-v4';
 const ASSETS = [
   '/',
   '/manifest.webmanifest',
@@ -9,7 +9,9 @@ const ASSETS = [
   '/src/operations.js',
   '/src/offline-store.js',
   '/src/offline-sync.js',
-  '/icons/wellspan.svg'
+  '/icons/wellspan.svg',
+  '/icons/wellspan-192.png',
+  '/icons/wellspan-512.png'
 ];
 
 self.addEventListener('install', event => {
