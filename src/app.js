@@ -611,6 +611,7 @@ import { sameBoard } from './operations.js';
           showToast('IndexedDB unavailable. Editing is disabled.');
         }
       }
+      $('setup-dialog').addEventListener('cancel', event => event.preventDefault());
       $('setup-server').addEventListener('click', async () => {
         if (pendingRemote?.state) await acceptBoard(pendingRemote.state, true);
       });

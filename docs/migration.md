@@ -1,6 +1,6 @@
 # Migration from browser-local Wellspan to authoritative Vega
 
-Status: **design and server foundation only; client cutover not implemented**.
+Status: **PR #3 experimental client implementation exists; browser acceptance and Vega cutover not completed**.
 
 ## A. Prerequisites and inventories
 
@@ -64,3 +64,9 @@ Status: **design and server foundation only; client cutover not implemented**.
 Before cutover: do not activate server sync; retain legacy frontend and localStorage.
 
 After cutover: stop sync writes, export IndexedDB's acknowledged state and pending queue, take a consistent SQLite backup and inspect discrepancies. Restore previous app assets without rewriting SQLite. Do not replace a newer SQLite snapshot with an older browser export. Re-enable synchronization only after revision and outbox reconciliation.
+
+## PR #3 implementation checkpoint
+
+The offline draft contains the IndexedDB workspace, an atomic local edit journal, an explicit one-time migration interface, revision-controlled synchronization, a conflict resolution UI, an offline app shell and PWA icon assets. The original legacy localStorage data is retained. No data is silently imported into Vega, and 409 conflicts do not automatically overwrite server data.
+
+Browser acceptance, including hard reload, network interruption after a write, multiple tabs, two devices, and actual Vega staging, must be completed before this PR is promoted out of draft. All imports and destructive decisions must be explicitly confirmed. Keep the Vega instance private behind Tailscale Serve, with a verified backup and restore plan before first real-data bootstrap.
