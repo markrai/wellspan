@@ -1,0 +1,10 @@
+.git
+.github
+docs
+tests
+README.md
+data
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+node_modules
