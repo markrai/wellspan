@@ -11,6 +11,8 @@ RUN addgroup -S -g 10001 wellspan && adduser -S -D -u 10001 -G wellspan wellspan
 COPY --from=build /wellspan /app/wellspan
 COPY index.html /app/index.html
 COPY src/ /app/src/
+COPY sw.js manifest.webmanifest /app/
+COPY icons/ /app/icons/
 USER wellspan
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 CMD ["/app/wellspan", "-healthcheck"]

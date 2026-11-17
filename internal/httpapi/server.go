@@ -98,6 +98,15 @@ func Handler(database *store.Store, staticDir string) http.Handler {
 		w.Header().Set("Cache-Control", "no-cache")
 		http.ServeFile(w, r, filepath.Join(staticDir, "index.html"))
 	})
+	mux.HandleFunc("GET /sw.js", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-cache")
+		http.ServeFile(w, r, filepath.Join(staticDir, "sw.js"))
+	})
+	mux.HandleFunc("GET /manifest.webmanifest", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/manifest+json")
+		http.ServeFile(w, r, filepath.Join(staticDir, "manifest.webmanifest"))
+	})
+	mux.Handle("GET /icons/", http.StripPrefix("/icons/", http.FileServer(http.Dir(filepath.Join(staticDir, "icons")))))
 	mux.Handle("GET /src/", http.StripPrefix("/src/", http.FileServer(http.Dir(filepath.Join(staticDir, "src")))))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
