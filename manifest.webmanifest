@@ -1,0 +1,18 @@
+{
+  "name": "Wellspan Foodboard",
+  "short_name": "Wellspan",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f2eee1",
+  "theme_color": "#246b5a",
+  "icons": [
+    {
+      "src": "/icons/wellspan.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
