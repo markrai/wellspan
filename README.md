@@ -4,7 +4,7 @@ A small food planning PWA in progress, with a Go + SQLite backend intended to ru
 
 ## Current status
 
-The vanilla-JS Foodboard is fully browser-local and uses the `wellspan-foodboard-v1` localStorage key. This branch adds a **server foundation only**. The frontend is not yet connected to SQLite. Do not deploy this branch as the authoritative service or assume that browsing the page synchronizes data.
+PR #3 connects Foodboard edits to an IndexedDB offline workspace and the Go/SQLite API, with an explicit one-time legacy-data migration dialog, a service worker and installable PWA assets. This is still a **draft awaiting full browser acceptance** and has not been deployed to Vega. Do not treat this as a production migration yet. The original `wellspan-foodboard-v1` localStorage key is left untouched.
 
 Migration plan: [docs/migration.md](docs/migration.md). Architecture: [docs/architecture.md](docs/architecture.md).
 

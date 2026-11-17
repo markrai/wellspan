@@ -3,3 +3,7 @@ data/
 *.sqlite-shm
 *.sqlite-wal
 node_modules/
+
+.tmp/
+playwright-report/
+test-results/

@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#f2eee1">
   <script src="src/theme-boot.js"></script>
   <title>Wellspan Foodboard</title>
+  <link rel="manifest" href="/manifest.webmanifest">
   <link rel="stylesheet" href="src/styles.css">
 </head>
 <body>
@@ -21,6 +22,17 @@
         <input id="import-file" type="file" accept=".json,application/json" hidden>
       </div>
     </header>
+
+    <section class="sync-panel" id="sync-panel" aria-label="Synchronization" hidden>
+      <span id="sync-status" role="status" aria-live="polite">Connecting to Vega…</span>
+      <button type="button" class="button small" id="sync-retry">Sync now</button>
+      <button type="button" class="button small primary" id="sync-init" hidden>Initialize Vega</button>
+      <div id="sync-conflict" class="sync-conflict" hidden>
+        <p>Two versions exist. Export your local foodboard before deciding which one wins.</p>
+        <button type="button" class="button small" id="sync-use-server">Use Vega version</button>
+        <button type="button" class="button small danger" id="sync-keep-local">Replace Vega with local version</button>
+      </div>
+    </section>
 
     <section aria-label="Your usual meal plan">
       <div id="meal-grid" class="plan-grid"></div>
@@ -61,7 +73,7 @@
         <span>Salt equivalent (g) = sodium (mg) × 0.0025</span>
       </div>
     </section>
-    <footer class="site-footer">Everything stays in this browser. No account, sync, tracking, or server. Export a backup before clearing browser data or switching devices.</footer>
+    <footer class="site-footer">Vega is the authoritative food library. Local edits are stored offline until synchronized. Export backups regularly.</footer>
   </main>
 
   <dialog id="food-dialog" aria-labelledby="dialog-title">
@@ -102,6 +114,22 @@
         <button type="submit" class="button primary" id="save-food-button">Save food</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="setup-dialog" aria-labelledby="setup-title">
+    <div class="dialog-head">
+      <h3 id="setup-title">Set up Wellspan on this device</h3>
+      <p id="setup-info"></p>
+    </div>
+    <div class="setup-actions">
+      <button class="button primary" type="button" id="setup-server" hidden>Use Vega food library</button>
+      <button class="button" type="button" id="setup-legacy" hidden>Use this browser's existing foods</button>
+      <button class="button" type="button" id="setup-starter">Start with the default food list</button>
+      <label class="button" for="setup-file">Import a JSON backup</label>
+      <input id="setup-file" type="file" accept=".json,application/json" hidden>
+      <button class="button ghost" type="button" id="setup-export">Export previous browser data</button>
+    </div>
+    <p class="setup-footnote">This is a one-time choice. Existing browser storage is not erased. Offline drafts stay local until Vega acknowledges them.</p>
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>

@@ -37,11 +37,18 @@ fi
 curl --fail --silent --show-error "$url/health" | grep -q '"ok":true'
 curl --fail --silent --show-error "$url/src/model.js" | grep -q 'wellspan-foodboard-v1'
 curl --fail --silent --show-error "$url/api/v1/state" | grep -q '"revision":0,"state":null'
+curl --fail --silent --show-error "$url/manifest.webmanifest" | grep -q 'Wellspan Foodboard'
+curl --fail --silent --show-error "$url/sw.js" | grep -q 'wellspan-app-shell-v4'
+curl --fail --silent --show-error "$url/src/offline-store.js" | grep -q 'class OfflineStore'
+for icon in wellspan-192.png wellspan-512.png; do
+  iconstatus="$(curl --silent --output /dev/null --write-out '%{http_code}' "$url/icons/$icon")"
+  test "$iconstatus" = 200
+done
 code="$(curl --silent --output /dev/null --write-out '%{http_code}' "$url/nonexistent-page")"
 test "$code" = 404
 
 docker stop "$container" >/dev/null
-  docker rm "$container" >/dev/null
+docker rm "$container" >/dev/null
 docker run -d --name "$container-restarted" -p 127.0.0.1::8080 -v "$volume":/data wellspan:ci >/dev/null
 for attempt in $(seq 1 20); do
   if [[ "$(docker inspect -f '{{.State.Health.Status}}' "$container-restarted")" == "healthy" ]]; then
