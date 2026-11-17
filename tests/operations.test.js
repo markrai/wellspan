@@ -53,8 +53,7 @@ test('synchronization rejects divergent same or newer revisions', () => {
   assert.equal(decideSync(local, ack(2, base)), 'replace');
   assert.equal(decideSync(local, ack(3, base)), 'conflict');
   assert.equal(decideSync(local, ack(3, edited)), 'acknowledge');
-  assert.equal(decideSync(local, ack(2, edited)), 'acknowledge');
-  assert.equal(decideSync(local, ack(2, edited)), 'acknowledge');
+  assert.equal(decideSync(local, ack(2, edited)), 'conflict');
   assert.ok(!sameBoard(base, edited));
 });
 
@@ -73,4 +72,18 @@ test('without pending writes, newer server state can be adopted', () => {
   local.outbox = [];
   assert.equal(decideSync(local, ack(3, board)), 'adopt');
   assert.equal(decideSync(local, ack(1, board)), 'conflict');
+});
+
+test('server reset never silently acknowledges a pending edit', () => {
+  const board = sample();
+  const edited = applyOperation(board, { type: 'meal.add', meal: 'dinner', id: board.foods[0].id });
+  const local = workspace(board, edited, 5);
+  assert.equal(decideSync(local, ack(4, edited)), 'conflict');
+});
+
+test('first-run local-only selection cannot overwrite populated Vega without conflict', () => {
+  const first = sample();
+  const second = applyOperation(first, { type: 'meal.add', meal: 'lunch', id: first.foods[0].id });
+  const local = workspace(null, first, 0, false);
+  assert.equal(decideSync(local, ack(1, second)), 'conflict');
 });

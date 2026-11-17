@@ -1,7 +1,8 @@
 import { decideSync, normalizeRemote, sameBoard } from './operations.js';
 
 async function readRemote(fetchImpl) {
-  const response = await fetchImpl('/api/v1/state', { cache: 'no-store', credentials: 'same-origin' });
+  const signal = globalThis.AbortSignal?.timeout?.(8000);
+  const response = await fetchImpl('/api/v1/state', { cache: 'no-store', credentials: 'same-origin', signal });
   if (!response.ok) throw new Error('Vega returned HTTP ' + response.status);
   return normalizeRemote(await response.json());
 }
@@ -14,7 +15,8 @@ async function writeRemote(fetchImpl, local, method) {
     headers,
     body: JSON.stringify(local.projection),
     cache: 'no-store',
-    credentials: 'same-origin'
+    credentials: 'same-origin',
+    signal: globalThis.AbortSignal?.timeout?.(15000)
   });
   if (response.status === 409) return { conflict: normalizeRemote(await response.json()) };
   if (!response.ok) throw new Error('Vega rejected the edit: HTTP ' + response.status);
@@ -36,8 +38,7 @@ async function syncOnce(store, fetchImpl = fetch) {
   const action = decideSync(local, remote);
   if (action === 'needs-approval') return 'needs-approval';
   if (action === 'conflict') {
-    await store.markConflict(remote);
-    return 'conflict';
+    return (await store.markConflict(remote, local.ack.revision)) ? 'conflict' : 'retry';
   }
   if (action === 'adopt') {
     return (await store.adopt(remote)) ? 'synced' : 'retry';
@@ -52,8 +53,7 @@ async function syncOnce(store, fetchImpl = fetch) {
     return error instanceof TypeError ? 'offline' : 'error: ' + error.message;
   }
   if (result.conflict) {
-    await store.markConflict(result.conflict);
-    return 'conflict';
+    return (await store.markConflict(result.conflict, local.ack.revision)) ? 'conflict' : 'retry';
   }
   return (await store.acknowledge(local, result.remote)) ? 'synced' : 'retry';
 }
@@ -64,7 +64,7 @@ function createSyncEngine(store, onStatus, fetchImpl = fetch) {
     let result = 'offline';
     for (let attempt = 0; attempt < 8; attempt++) {
       result = await syncOnce(store, fetchImpl);
-      onStatus(result, await store.read());
+      await onStatus(result, await store.read());
       if (result !== 'retry' && result !== 'synced') break;
       const current = await store.read();
       if (!current?.outbox.length) break;

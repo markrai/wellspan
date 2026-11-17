@@ -123,9 +123,13 @@ class OfflineStore {
     });
   }
 
-  markConflict(remote) {
+  markConflict(remote, expectedRevision) {
     return this.transaction(current => {
-      if (!current) return { result: false };
+      if (!current || current.ack.revision !== expectedRevision) return { result: false };
+      if (!current.outbox.length && sameBoard(current.projection, remote.state) && remote.revision >= expectedRevision) {
+        const next = { ...current, ack: remote, projection: remote.state, conflict: null };
+        return { next, result: false };
+      }
       const next = { ...current, conflict: remote };
       return { next, result: true };
     });

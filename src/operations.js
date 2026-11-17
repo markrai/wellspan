@@ -75,7 +75,7 @@ function decideSync(workspace, rawRemote) {
     if (remote.revision === workspace.ack.revision && !sameBoard(remote.state, workspace.ack.state)) return 'conflict';
     return 'adopt';
   }
-  if (remote.revision > 0 && sameBoard(remote.state, workspace.projection)) return 'acknowledge';
+  if (remote.revision > workspace.ack.revision && sameBoard(remote.state, workspace.projection)) return 'acknowledge';
   if (remote.revision !== workspace.ack.revision || !sameBoard(remote.state, workspace.ack.state)) return 'conflict';
   if (remote.revision === 0) return workspace.bootstrapApproved ? 'bootstrap' : 'needs-approval';
   return 'replace';
