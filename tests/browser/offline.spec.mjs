@@ -160,17 +160,20 @@ test('stale editors in two tabs do not overwrite each other', async ({ page, con
 test('a lost response after a committed write does not duplicate the edit', async ({ page, request, server }) => {
   await setupStarter(page, server);
   let intercepted = false;
+  let committed = false;
   await page.route('**/api/v1/state', async route => {
     if (route.request().method() === 'PUT' && !intercepted) {
       intercepted = true;
       const response = await route.fetch();
       expect(response.status()).toBe(200);
+      committed = true;
       await route.abort('failed');
       return;
     }
     await route.continue();
   });
   await changeProtein(page, 23);
+  await expect.poll(() => committed, { timeout: 15000 }).toBe(true);
   await expect(page.locator('#sync-status')).toContainText('Unsynced', { timeout: 15000 });
   const saved = await (await request.get(server.url + '/api/v1/state')).json();
   expect(saved.revision).toBe(2);
