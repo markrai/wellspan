@@ -46,7 +46,7 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - run: go build -o .tmp/wellspan-e2e ./cmd/wellspan
+      - run: mkdir -p .tmp && go build -o .tmp/wellspan-e2e ./cmd/wellspan
       - run: npm install --no-save --no-package-lock @playwright/test@1.63.0
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test --config=playwright.config.mjs
