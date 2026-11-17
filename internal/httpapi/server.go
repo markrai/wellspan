@@ -22,6 +22,10 @@ type response struct {
 func Handler(database *store.Store, staticDir string) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		if _, err := database.Read(r.Context()); err != nil {
+			serverError(w)
+			return
+		}
 		writeJSON(w, http.StatusOK, []byte(`{"ok":true}`), 0)
 	})
 	mux.HandleFunc("GET /api/v1/state", func(w http.ResponseWriter, r *http.Request) {

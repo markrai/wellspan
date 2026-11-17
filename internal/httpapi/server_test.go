@@ -120,3 +120,18 @@ func TestOriginAndShapeProtection(t *testing.T) {
 		t.Fatalf("unexpected app-shell 200 for invalid path: %d", notFound.Code)
 	}
 }
+
+func TestHealthRequiresDatabase(t *testing.T) {
+	h, db, _ := newServer(t)
+	healthy := request(h, "GET", "/health", "", nil)
+	if healthy.Code != http.StatusOK {
+		t.Fatalf("healthy database: %d", healthy.Code)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	unhealthy := request(h, "GET", "/health", "", nil)
+	if unhealthy.Code != http.StatusInternalServerError {
+		t.Fatalf("closed database must report unhealthy: %d", unhealthy.Code)
+	}
+}

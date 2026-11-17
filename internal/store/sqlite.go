@@ -39,11 +39,29 @@ func Open(path string) (*Store, error) {
 		"PRAGMA busy_timeout=5000",
 		"PRAGMA journal_mode=WAL",
 		"PRAGMA foreign_keys=ON",
-		"CREATE TABLE IF NOT EXISTS board_state (id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL CHECK(revision>0), payload BLOB NOT NULL)",
 	} {
 		if _, err := db.Exec(query); err != nil {
 			db.Close()
 			return nil, fmt.Errorf("initialize SQLite: %w", err)
+		}
+	}
+	var version int
+	if err := db.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("read SQLite schema version: %w", err)
+	}
+	if version != 0 && version != 1 {
+		db.Close()
+		return nil, fmt.Errorf("unsupported SQLite schema version %d", version)
+	}
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS board_state (id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL CHECK(revision>0), payload BLOB NOT NULL)"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("initialize SQLite table: %w", err)
+	}
+	if version == 0 {
+		if _, err := db.Exec("PRAGMA user_version=1"); err != nil {
+			db.Close()
+			return nil, fmt.Errorf("set SQLite schema version: %w", err)
 		}
 	}
 	return &Store{db: db}, nil

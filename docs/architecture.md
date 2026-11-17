@@ -72,3 +72,9 @@ Multi-tab access must coordinate the outbox with Web Locks or an IndexedDB lease
 - Keep an offline SQLite backup and a tested restore procedure. An ordinary copy of a live SQLite database in WAL mode is not a safe backup.
 - A Vega outage must not replace the local IndexedDB state with an empty default board.
 - Rollback must preserve the last acknowledged server snapshot and pending operations; never erase the old localStorage key until explicit decommission acceptance.
+
+## Deployment readiness
+
+The standalone Go binary's `-healthcheck` checks its loopback HTTP endpoint, which probes the SQLite database before reporting success. GitHub CI builds the Docker image and tests its health check, private loopback binding, API empty state, static source availability, and true 404s. The SQLite file persists in a named Docker volume; an application image update must not replace that volume.
+
+SQLite uses WAL mode and schema `PRAGMA user_version=1`. Opening a database with an unknown newer schema is an error, not an implicit downgrade. A safe backup must use SQLite's online-backup mechanism or `VACUUM INTO`; do not copy the live `.sqlite` file alone while writes are active. These checks are infrastructure qualifications, not permission to perform production cutover before offline sync and backups are accepted.

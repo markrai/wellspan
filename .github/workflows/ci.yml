@@ -26,3 +26,10 @@ jobs:
       - run: go mod download
       - run: go test ./... -count=1
       - run: go vet ./...
+
+  container-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t wellspan:ci .
+      - run: bash tests/container-smoke.sh

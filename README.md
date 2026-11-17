@@ -47,3 +47,7 @@ Do not enable the production instance until offline IndexedDB, migration UI, con
 ## Compatibility
 
 The browser localStorage key and version-1 export/import contract remain intact. Existing data is tied to its exact browser origin. Moving hostname or port requires a deliberate export/import; no automatic cross-origin migration exists.
+
+## Validation
+
+CI runs Node tests and Go tests/vet plus a real Docker image smoke test (`tests/container-smoke.sh`). The container smoke test checks its health probe, static serving, 404 behavior and volume-backed restart. Local hardware validation on Vega and verified SQLite backups are still required before activating production.
