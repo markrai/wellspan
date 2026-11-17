@@ -1,0 +1,23 @@
+services:
+  wellspan:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8788:8080"
+    volumes:
+      - wellspan-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "/app/wellspan", "-healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  wellspan-data:
