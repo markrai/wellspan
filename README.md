@@ -52,6 +52,17 @@ The browser localStorage key and version-1 export/import contract remain intact.
 
 CI runs Node tests and Go tests/vet plus a real Docker image smoke test (`tests/container-smoke.sh`). The container smoke test checks its health probe, static serving, 404 behavior and volume-backed restart. Local hardware validation on Vega and verified SQLite backups are still required before activating production.
 
+## Vega staging update
+
+After merging the deployment script PR, run on Vega:
+
+```bash
+cd ~/dev/project/wellspan
+./deploy.sh
+```
+
+This updates `origin/main` fast-forward-only, builds the image before stopping the old staging container, preserves the SQLite volume and localhost port, checks health and attempts image rollback if replacement fails. It does not change Tailscale Serve. See [deployment safeguards](docs/vega-deployment.md).
+
 ## LOBO M3 browser compatibility probe
 
 The read-only diagnostic page lives at `/probe/` once this change is deployed. It exercises the `lobo.handoff/v1` one-time browser-to-browser `postMessage` protocol through a user-approved, preinstalled LOBO Workbench Recipe. It is not a CORS endpoint, a new Wellspan API, a PACK integration, or an auto-import feature.
