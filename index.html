@@ -92,6 +92,32 @@
             </span>
             <span class="hint duplicate-hint" id="name-duplicate-hint" role="alert" hidden>Item already exists.</span>
           </div>
+          <section class="label-assistant field full" aria-label="Auto-populate nutrition from label">
+            <div class="form-subtitle">Auto-populate from a label</div>
+            <p class="label-note">Uses your LOBO Android Workbench with one-time approval. Nothing is saved automatically.</p>
+            <label for="label-origin">LOBO Workbench HTTPS origin</label>
+            <input id="label-origin" type="url" inputmode="url" spellcheck="false" autocomplete="off" placeholder="https://192.168.1.200:7869">
+            <label for="label-photo">Nutrition Facts photo</label>
+            <input id="label-photo" type="file" accept="image/png,image/jpeg,image/webp">
+            <img id="label-photo-preview" class="label-image" alt="Selected Nutrition Facts label to compare with extracted values" hidden>
+            <div class="label-buttons">
+              <button type="button" class="button" id="label-run">Extract with LOBO</button>
+              <button type="button" class="button" id="label-stop" hidden>Stop listening</button>
+            </div>
+            <p id="label-status" class="label-note" role="status" aria-live="polite"></p>
+            <div id="label-review" class="label-review" hidden>
+              <p id="label-serving" class="label-serving"></p>
+              <p class="label-note">These values are per printed serving, not necessarily your usual portion. Compare every quotation with the photo. Missing nutrients remain unchanged.</p>
+              <div class="label-table-scroll">
+                <table class="label-table" aria-label="Extracted nutrients for approval">
+                  <thead><tr><th>Use</th><th>Nutrient</th><th>Value</th><th>Evidence</th></tr></thead>
+                  <tbody id="label-fields"></tbody>
+                </table>
+              </div>
+              <label class="label-confirm"><input id="label-portion-confirm" type="checkbox"> I checked the photo and the label serving matches the portion I normally consume.</label>
+              <button type="button" class="button primary" id="label-apply" disabled>Apply selected values to editor</button>
+            </div>
+          </section>
           <div class="form-subtitle">Energy and macronutrients</div>
           <div class="field"><label for="field-calories">Calories (kcal)</label><input id="field-calories" name="calories" type="number" min="0" step="any" inputmode="decimal" placeholder="Not entered"></div>
           <div class="field"><label for="field-protein">Protein (g)</label><input id="field-protein" name="protein" type="number" min="0" step="any" inputmode="decimal" placeholder="Not entered"></div>
