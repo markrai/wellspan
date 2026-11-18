@@ -1,0 +1,36 @@
+{
+  "schema": "lobo.extract.report/v1",
+  "status": "valid",
+  "format": "json",
+  "problems": [],
+  "fields": [
+    {
+      "id": "vendor",
+      "label": "Vendor",
+      "type": "text",
+      "required": true,
+      "status": "valid",
+      "value": "Globex",
+      "reason": null,
+      "evidence": "Vendor: Globex",
+      "support": "unmatched"
+    },
+    {
+      "id": "total",
+      "label": "Total",
+      "type": "number",
+      "required": true,
+      "status": "valid",
+      "value": 120,
+      "reason": null,
+      "evidence": "Total: 120",
+      "support": "matched"
+    }
+  ],
+  "counts": {
+    "valid": 2,
+    "missing": 0,
+    "invalid": 0,
+    "unsupported": 1
+  }
+}
