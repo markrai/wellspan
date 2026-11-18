@@ -5,6 +5,18 @@ const COUNT_KEYS = ['valid', 'missing', 'invalid', 'unsupported'];
 const TYPES = new Set(['text', 'number', 'date', 'boolean']);
 const STATUS = new Set(['valid', 'missing', 'invalid']);
 const SUPPORT = new Set(['matched', 'unmatched', 'none']);
+const EVIDENCE_TERMS = Object.freeze({
+  serving_g: /\b(serving|portion)\b/i,
+  calories_kcal: /\b(calories|energy)\b/i,
+  protein_g: /\bprotein\b/i,
+  carbohydrate_g: /\b(carbohydrate|carbs?)\b/i,
+  fat_g: /\b(total fat|fat)\b/i,
+  saturated_fat_g: /\bsaturat/i,
+  fiber_g: /\b(fiber|fibre)\b/i,
+  sugar_g: /\bsugars?\b/i,
+  sodium_mg: /\bsodium\b/i,
+  cholesterol_mg: /\bcholesterol\b/i
+});
 const NUTRIENTS = Object.freeze({
   calories_kcal: 'calories',
   protein_g: 'protein',
@@ -66,6 +78,10 @@ function validateField(field, seen, errors) {
     if (field.support !== 'matched') errors.push(id + ': no source-matched evidence');
     if (field.type === 'number' && field.support === 'matched' && !numericEvidenceContains(field.evidence, value)) {
       errors.push(id + ': numeric value does not appear in its quoted evidence');
+    }
+    if (field.type === 'number' && field.support === 'matched' && EVIDENCE_TERMS[id] &&
+      !EVIDENCE_TERMS[id].test(field.evidence || '')) {
+      errors.push(id + ': quoted evidence does not identify the expected nutrition field');
     }
     if (field.type === 'text' && typeof value === 'string' && field.support === 'matched' &&
       !field.evidence?.toLocaleLowerCase().includes(value.toLocaleLowerCase())) {
