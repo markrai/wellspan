@@ -72,3 +72,9 @@ From a Tailscale-connected browser, open the private Wellspan HTTPS origin's `/p
 Use the three bundled public fixtures to test report handling without contacting a phone. The client retains neither reports nor images after the page is closed. This probe never sends `POST /api/v1/bootstrap` or `PUT /api/v1/state` and does not modify SQLite, IndexedDB, or `localStorage` food entries.
 
 See [LOBO probe protocol and acceptance](docs/lobo-m3-probe.md).
+
+## LOBO label auto-populate
+
+In Add/Edit Food, enter the trusted Android Workbench HTTPS origin and attach a Nutrition Facts image. Click **Extract with LOBO**, approve the one-time `nutrition-label-facts` Recipe on the phone, inspect the extracted evidence and label serving, select nutrients to use, and confirm that the label serving matches your usual consumed portion. **Apply selected values to editor** changes the form only. **Save food** separately persists edits through the existing IndexedDB/Vega revision flow.
+
+Previously entered nutrients start deselected; missing values never overwrite existing entries. No label image, raw report or serving metadata is saved to the Foodboard. The source preview is released on closing the dialog. The browser must trust and reach the phone's HTTPS Workbench. This uses the M3 handoff, not desktop PACK or a new server gateway; it does not perform unit conversions or assume serving multipliers. See [acceptance and security](docs/lobo-auto-populate.md).

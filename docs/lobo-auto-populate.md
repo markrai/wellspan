@@ -1,0 +1,13 @@
+# LOBO label auto-populate
+
+This review-first integration uses the existing browser-to-Workbench lobo.handoff/v1 protocol, not a new server endpoint or PACK gateway.
+
+1. Open Add/Edit Food. Enter the phone's trusted HTTPS Workbench origin and choose a PNG/JPEG/WebP label up to 5 MiB.
+2. Select Extract with LOBO and explicitly approve the built-in nutrition-label-facts Recipe on the Android phone.
+3. Wellspan validates the lobo.extract.report/v1 response and renders source evidence for each returned nutrient. Invalid or unsupported reports cannot be applied.
+4. Review the original photo and the printed serving. Existing field values are unchecked by default; missing values cannot be selected.
+5. Confirm that the printed serving matches your usual consumed portion, select nutrients and click Apply selected values to editor. This changes the form, not persistent state. Save Food is a separate user action under normal IndexedDB/Vega revision controls.
+
+No image, report or serving metadata is persisted in the Foodboard. The label image URL is revoked when closing the dialog. Rejected, malformed, expired or declined handoffs fail closed. A cancelled handoff only stops listening, not work already running on the phone. No automatic scaling or guessed values are allowed. Evidence matching is not proof of nutritional accuracy and the phone's raw OCR transcript is not available in M3. Review the original label before saving.
+
+Acceptance: exercise supported/unsupported fixtures, perform a real phone run with the updated Android Workbench, verify selection and portion-gating, verify no write before Save Food, verify null preservation, cancel/close behavior, and offline synchronization. If Android still produces arrays, it must refuse them rather than convert quoted numbers.

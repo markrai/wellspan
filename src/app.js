@@ -2,6 +2,7 @@ import { KEY, nutrientKeys, mealInfo, freshState, normalizeNotes, valueOrNull, f
 import { OfflineStore } from './offline-store.js';
 import { readRemote, createSyncEngine } from './offline-sync.js';
 import { sameBoard } from './operations.js';
+import { createLabelAssistant } from './lobo-food-editor.js';
 
 (() => {
       'use strict';
@@ -351,6 +352,7 @@ import { sameBoard } from './operations.js';
         if (id && !food) return;
         editingOriginal = food ? structuredClone(food) : null;
         $('food-form').reset();
+        labelAssistant.reset();
         $('form-warning').textContent = '';
         $('dialog-title').textContent = food ? `Edit ${food.name}` : 'Add food';
         $('save-food-button').textContent = food ? 'Save changes' : 'Add to master list';
@@ -372,6 +374,13 @@ import { sameBoard } from './operations.js';
         const raw = $('field-salt').value;
         $('field-sodium').value = raw === '' ? '' : String(Number((Number(raw) * 400).toFixed(6)));
       }
+      const labelAssistant = createLabelAssistant({
+        getExisting: key => $(fieldId(key)).value,
+        applyValues: values => {
+          for (const [key, value] of Object.entries(values)) $(fieldId(key)).value = String(value);
+          if (Object.hasOwn(values, 'sodium')) syncSaltFromSodium();
+        }
+      });
       async function saveEditor(event) {
         event.preventDefault();
         const name = $('field-name').value.trim();

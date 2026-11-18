@@ -244,3 +244,19 @@ test('LOBO M3 mock cross-origin popup requires a user-approved result', async ({
   await expect(page.locator('#handoff-status')).toContainText('approved');
   expect(await (await request.get(server.url + '/api/v1/state')).json()).toEqual({ revision: 0, state: null });
 });
+
+test('label assistant cannot mutate food values without explicit approval', async ({ page, request, server }) => {
+  await setupStarter(page, server);
+  await page.getByRole('button', { name: 'Edit Walnuts' }).click();
+  await expect(page.locator('#label-run')).toBeVisible();
+  await expect(page.locator('#label-review')).toBeHidden();
+  await expect(page.locator('#label-apply')).toBeDisabled();
+  await page.locator('#field-protein').fill('9');
+  await page.locator('#label-run').click();
+  await expect(page.locator('#label-status')).toContainText('Cannot start LOBO');
+  await expect(page.locator('#field-protein')).toHaveValue('9');
+  await page.locator('#cancel-button').click();
+  const remote = await (await request.get(server.url + '/api/v1/state')).json();
+  expect(remote.revision).toBe(1);
+  expect(remote.state.foods[0].nutrients.protein).toBeNull();
+});
