@@ -107,6 +107,7 @@ func Handler(database *store.Store, staticDir string) http.Handler {
 		http.ServeFile(w, r, filepath.Join(staticDir, "manifest.webmanifest"))
 	})
 	mux.Handle("GET /icons/", http.StripPrefix("/icons/", http.FileServer(http.Dir(filepath.Join(staticDir, "icons")))))
+	mux.Handle("GET /probe/", http.StripPrefix("/probe/", http.FileServer(http.Dir(filepath.Join(staticDir, "probe")))))
 	mux.Handle("GET /src/", http.StripPrefix("/src/", http.FileServer(http.Dir(filepath.Join(staticDir, "src")))))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")

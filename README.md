@@ -51,3 +51,13 @@ The browser localStorage key and version-1 export/import contract remain intact.
 ## Validation
 
 CI runs Node tests and Go tests/vet plus a real Docker image smoke test (`tests/container-smoke.sh`). The container smoke test checks its health probe, static serving, 404 behavior and volume-backed restart. Local hardware validation on Vega and verified SQLite backups are still required before activating production.
+
+## LOBO M3 browser compatibility probe
+
+The read-only diagnostic page lives at `/probe/` once this change is deployed. It exercises the `lobo.handoff/v1` one-time browser-to-browser `postMessage` protocol through a user-approved, preinstalled LOBO Workbench Recipe. It is not a CORS endpoint, a new Wellspan API, a PACK integration, or an auto-import feature.
+
+From a Tailscale-connected browser, open the private Wellspan HTTPS origin's `/probe/` path, enter the exact HTTPS origin of a reachable LOBO Workbench, and supply a Nutrition Facts image. Workbench must already contain the bundled `nutrition-label-facts` Recipe, and the user must click approval on the phone. A report is accepted for a **read-only review preview** only after matching origin/opener/request ID, confirmed handoff result and consumer-side structural and evidence checks. The original label and its serving basis still require direct human comparison.
+
+Use the three bundled public fixtures to test report handling without contacting a phone. The client retains neither reports nor images after the page is closed. This probe never sends `POST /api/v1/bootstrap` or `PUT /api/v1/state` and does not modify SQLite, IndexedDB, or `localStorage` food entries.
+
+See [LOBO probe protocol and acceptance](docs/lobo-m3-probe.md).

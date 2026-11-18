@@ -4,6 +4,6 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "check": "node --check src/model.js && node --check src/app.js && node --check src/theme-boot.js && node --check src/operations.js && node --check src/offline-store.js && node --check src/offline-sync.js && node --check sw.js"
+    "check": "node --check src/model.js && node --check src/app.js && node --check src/theme-boot.js && node --check src/operations.js && node --check src/offline-store.js && node --check src/offline-sync.js && node --check sw.js && node --check src/lobo-handoff.js && node --check src/lobo-report.js && node --check probe/app.js"
   }
 }
