@@ -40,6 +40,10 @@ curl --fail --silent --show-error "$url/api/v1/state" | grep -q '"revision":0,"s
 curl --fail --silent --show-error "$url/manifest.webmanifest" | grep -q 'Wellspan Foodboard'
 curl --fail --silent --show-error "$url/sw.js" | grep -q 'wellspan-app-shell-v4'
 curl --fail --silent --show-error "$url/src/offline-store.js" | grep -q 'class OfflineStore'
+curl --fail --silent --show-error "$url/probe/" | grep -q 'LOBO M3 integration probe'
+curl --fail --silent --show-error "$url/src/lobo-handoff.js" | grep -q 'lobo.handoff/v1'
+curl --fail --silent --show-error "$url/probe/fixtures/supported-nutrition.json" | grep -q 'lobo.extract.report/v1'
+curl --fail --silent --show-error "$url/api/v1/state" | grep -q '"revision":0,"state":null'
 for icon in wellspan-192.png wellspan-512.png; do
   iconstatus="$(curl --silent --output /dev/null --write-out '%{http_code}' "$url/icons/$icon")"
   test "$iconstatus" = 200

@@ -2,6 +2,7 @@ import { test as base, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { mkdtemp, rm } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { freshState, KEY } from '../../src/model.js';
@@ -200,4 +201,46 @@ test('service worker never caches mutable API responses', async ({ page, server 
   expect(cached).toContain('/src/app.js');
   expect(cached).not.toContain('/api/v1/state');
   expect(cached).not.toContain('/health');
+});
+
+test('LOBO probe accepts only supported fixture and never initializes Vega', async ({ page, request, server }) => {
+  await page.goto(server.url + '/probe/');
+  await expect(page.getByRole('heading', { name: 'LOBO M3 integration probe' })).toBeVisible();
+  await page.getByRole('button', { name: 'Supported nutrition' }).click();
+  await expect(page.locator('#result-status')).toContainText('passed the consumer structure and evidence checks');
+  await expect(page.locator('#nutrition-preview')).toContainText('"calories": 185');
+  await expect(page.locator('#nutrition-preview')).toContainText('"protein": 4.3');
+  await page.getByRole('button', { name: 'Unsupported evidence' }).click();
+  await expect(page.locator('#result-status')).toContainText('Ineligible');
+  await expect(page.locator('#nutrition-preview')).toContainText('No validated nutrition preview.');
+  await page.getByRole('button', { name: 'Malformed response' }).click();
+  await expect(page.locator('#result-status')).toContainText('Ineligible');
+  const remote = await (await request.get(server.url + '/api/v1/state')).json();
+  expect(remote).toEqual({ revision: 0, state: null });
+});
+
+test('LOBO M3 mock cross-origin popup requires a user-approved result', async ({ page, context, request, server }) => {
+  const mock = readFileSync(new URL('./mock-lobo.html', import.meta.url), 'utf8');
+  const sample = readFileSync(new URL('../../probe/fixtures/supported-nutrition.json', import.meta.url), 'utf8');
+  await context.route('https://phone.example:7869/**', route => route.fulfill({
+    status: 200,
+    contentType: 'text/html',
+    body: mock.replace('__REPORT__', sample)
+  }));
+  await page.goto(server.url + '/probe/');
+  await page.locator('#phone-origin').fill('https://phone.example:7869');
+  await page.locator('#photo').setInputFiles({
+    name: 'label.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('mock label bytes')
+  });
+  const popupEvent = page.waitForEvent('popup');
+  await page.locator('#run-probe').click();
+  const popup = await popupEvent;
+  await expect(popup.locator('#approve')).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('#result-status')).toContainText('Waiting for LOBO');
+  await popup.locator('#approve').click();
+  await expect(page.locator('#result-status')).toContainText('passed the consumer structure and evidence checks', { timeout: 15000 });
+  await expect(page.locator('#handoff-status')).toContainText('approved');
+  expect(await (await request.get(server.url + '/api/v1/state')).json()).toEqual({ revision: 0, state: null });
 });

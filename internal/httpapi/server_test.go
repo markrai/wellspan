@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -133,5 +134,33 @@ func TestHealthRequiresDatabase(t *testing.T) {
 	unhealthy := request(h, "GET", "/health", "", nil)
 	if unhealthy.Code != http.StatusInternalServerError {
 		t.Fatalf("closed database must report unhealthy: %d", unhealthy.Code)
+	}
+}
+
+func TestLoboProbeIsStaticAndCannotInitializeBoard(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "probe"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "probe", "index.html"), []byte("<h1>LOBO M3 integration probe</h1>"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	db, err := store.Open(filepath.Join(t.TempDir(), "probe.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	h := Handler(db, dir)
+	page := request(h, "GET", "/probe/", "", nil)
+	if page.Code != 200 || !strings.Contains(page.Body.String(), "LOBO M3 integration probe") {
+		t.Fatalf("probe static page: %d %s", page.Code, page.Body.String())
+	}
+	state := request(h, "GET", "/api/v1/state", "", nil)
+	if state.Code != 200 || !strings.Contains(state.Body.String(), "\"revision\":0,\"state\":null") {
+		t.Fatalf("probe must not initialize board: %s", state.Body.String())
+	}
+	unsupported := request(h, "POST", "/probe/", "", nil)
+	if unsupported.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("probe should not accept writes: %d", unsupported.Code)
 	}
 }

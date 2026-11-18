@@ -1,0 +1,58 @@
+{
+  "schema": "lobo.extract.report/v1",
+  "status": "valid",
+  "format": "json",
+  "problems": [],
+  "fields": [
+    {
+      "id": "serving_g",
+      "label": "Serving grams",
+      "type": "number",
+      "required": true,
+      "status": "valid",
+      "value": 28,
+      "reason": null,
+      "evidence": "Serving size 28 g",
+      "support": "matched"
+    },
+    {
+      "id": "calories_kcal",
+      "label": "Calories",
+      "type": "number",
+      "required": true,
+      "status": "valid",
+      "value": 185,
+      "reason": null,
+      "evidence": "Calories 185",
+      "support": "matched"
+    },
+    {
+      "id": "protein_g",
+      "label": "Protein grams",
+      "type": "number",
+      "required": false,
+      "status": "valid",
+      "value": 4.3,
+      "reason": null,
+      "evidence": "Protein 4.3 g",
+      "support": "matched"
+    },
+    {
+      "id": "sodium_mg",
+      "label": "Sodium",
+      "type": "number",
+      "required": false,
+      "status": "missing",
+      "value": null,
+      "reason": "not found in the source",
+      "evidence": null,
+      "support": "none"
+    }
+  ],
+  "counts": {
+    "valid": 3,
+    "missing": 1,
+    "invalid": 0,
+    "unsupported": 0
+  }
+}

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Mock LOBO Workbench</title></head>
+<body>
+<h1>Mock LOBO M3 Receiver</h1>
+<button id="approve" hidden type="button">Approve</button>
+<script>
+const params = new URLSearchParams(location.hash.slice(1));
+const callerOrigin = params.get('origin');
+const requestId = params.get('requestId');
+const report = __REPORT__;
+window.addEventListener('message', event => {
+  if (event.source !== window.opener || event.origin !== callerOrigin) return;
+  const data = event.data;
+  if (data?.protocol !== 'lobo.handoff/v1' || data.type !== 'request' ||
+    data.requestId !== requestId || data.recipeId !== 'nutrition-label-facts' ||
+    !(data.inputs?.image instanceof Blob)) return;
+  const approve = document.getElementById('approve');
+  approve.hidden = false;
+  approve.addEventListener('click', () => {
+    window.opener.postMessage({
+      protocol: 'lobo.handoff/v1',
+      type: 'result',
+      requestId,
+      recipeId: 'nutrition-label-facts',
+      completion: 'confirmed',
+      output: { type: 'json', value: report }
+    }, callerOrigin);
+  }, { once: true });
+});
+window.setTimeout(() => {
+  window.opener?.postMessage({ protocol: 'lobo.handoff/v1', type: 'ready', requestId }, callerOrigin);
+}, 75);
+</script>
+</body>
+</html>

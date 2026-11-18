@@ -1,0 +1,27 @@
+{
+  "schema": "lobo.extract.report/v1",
+  "status": "invalid",
+  "format": "json",
+  "problems": [
+    "the JSON ends before it is complete (the answer may have been cut off)"
+  ],
+  "fields": [
+    {
+      "id": "calories_kcal",
+      "label": "Calories",
+      "type": "number",
+      "required": true,
+      "status": "invalid",
+      "value": null,
+      "reason": "the answer could not be checked",
+      "evidence": null,
+      "support": "none"
+    }
+  ],
+  "counts": {
+    "valid": 0,
+    "missing": 0,
+    "invalid": 1,
+    "unsupported": 0
+  }
+}
