@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f2eee1">
+  <title>Wellspan · LOBO handoff probe</title>
+  <script src="/src/theme-boot.js"></script>
+  <link rel="stylesheet" href="/src/styles.css">
+  <link rel="stylesheet" href="/probe/styles.css">
+</head>
+<body>
+  <main class="probe-shell">
+    <p><a href="/">← Foodboard</a></p>
+    <header>
+      <h1>LOBO M3 integration probe</h1>
+      <p>Exercise the one-use Workbench handoff and inspect its extraction report. Nothing in this page saves or changes any Wellspan food data.</p>
+    </header>
+    <section class="probe-card">
+      <h2>Run on your phone</h2>
+      <p>Enter the HTTPS origin where your phone's LOBO Workbench is reachable from this browser. The Workbench must already contain the selected Recipe. LOBO requires you to approve each request on the phone.</p>
+      <form id="probe-form">
+        <label for="phone-origin">LOBO Workbench HTTPS origin</label>
+        <input id="phone-origin" type="url" inputmode="url" placeholder="https://phone-address:7869" autocomplete="off" required spellcheck="false">
+        <label for="recipe-id">Recipe</label>
+        <select id="recipe-id">
+          <option value="nutrition-label-facts">Nutrition label facts (image)</option>
+          <option value="extract-to-json">Extract fields to JSON (text)</option>
+        </select>
+        <div id="photo-input">
+          <label for="photo">Nutrition Facts label photo</label>
+          <input id="photo" type="file" accept="image/png,image/jpeg,image/webp">
+          <p class="hint">PNG, JPEG or WebP; maximum 5 MiB. Image bytes travel to the approved LOBO Workbench popup, not Vega.</p>
+        </div>
+        <div id="text-input" hidden>
+          <label for="source-text">Source text</label>
+          <textarea id="source-text" rows="5" maxlength="16384" placeholder="Paste source text to examine the generic handoff protocol"></textarea>
+        </div>
+        <div class="probe-actions">
+          <button id="run-probe" class="button primary" type="submit">Open LOBO Workbench</button>
+          <button id="cancel-probe" class="button" type="button" disabled>Stop listening</button>
+        </div>
+      </form>
+      <p id="handoff-status" role="status" aria-live="polite">No handoff started.</p>
+    </section>
+    <section class="probe-card">
+      <h2>Fixture diagnostics</h2>
+      <p>Verify the report consumer without a phone. These are published <code>lobo.extract.report/v1</code> example reports, not foodboard data.</p>
+      <div class="probe-actions">
+        <button class="button" type="button" data-fixture="supported-nutrition">Supported nutrition</button>
+        <button class="button" type="button" data-fixture="unsupported-quote">Unsupported evidence</button>
+        <button class="button" type="button" data-fixture="malformed-answer">Malformed response</button>
+      </div>
+    </section>
+    <section class="probe-card" aria-labelledby="results-title">
+      <h2 id="results-title">Inspection results</h2>
+      <p id="result-status" role="status" aria-live="polite">No report inspected.</p>
+      <div id="result-errors"></div>
+      <div class="table-scroll">
+        <table id="result-fields" aria-label="Extracted field evidence" hidden>
+          <thead><tr><th>Field</th><th>Value</th><th>Status</th><th>Evidence</th></tr></thead>
+          <tbody id="result-rows"></tbody>
+        </table>
+      </div>
+      <h3>Wellspan value mapping preview</h3>
+      <p>This preview is read-only and uses values for the label's printed serving basis. It does not update food entries or assume the serving equals your usual portion.</p>
+      <pre id="nutrition-preview">No validated nutrition preview.</pre>
+      <details>
+        <summary>Inspect raw output</summary>
+        <pre id="raw-report">No output.</pre>
+      </details>
+    </section>
+    <footer class="probe-footnote">A protocol success is not nutritional verification. Compare source evidence, serving size, units and food identity before any future ingestion. LOBO M3 provides no PACK orchestration or unattended approval.</footer>
+  </main>
+  <script type="module" src="/probe/app.js"></script>
+</body>
+</html>
