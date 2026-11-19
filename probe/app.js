@@ -81,7 +81,9 @@ $('probe-form').addEventListener('submit', event => {
       onStatus: phase => {
         status(phase === 'awaiting-ready'
           ? 'Workbench window opened. Waiting for its authenticated ready message.'
-          : 'Workbench received the request. Review the image and Recipe on your phone, then approve or decline.');
+          : phase === 'rejected-result'
+            ? 'The returned result failed the verified handoff contract. Nothing was accepted.'
+            : 'Workbench received the request. Waiting for a completed Recipe result; untrusted requests require authorization in LOBO.');
       },
       onTerminal: terminal
     });
