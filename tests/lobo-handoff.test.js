@@ -191,7 +191,7 @@ test('a matched but malformed result is explained without accepting it or abando
     completion: 'confirmed', output: { type: 'json', value: [] }
   });
   assert.equal(env.terminal.length, 0);
-  assert.equal(env.phases.at(-1), 'awaiting-approval');
+  assert.equal(env.phases.at(-1), 'rejected-result');
   env.result();
   assert.equal(env.terminal[0].type, 'result');
 });
