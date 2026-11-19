@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { beginHandoff, canonicalOrigin, validateInputs, MAX_IMAGE_BYTES, PROTOCOL } from '../src/lobo-handoff.js';
+import { beginHandoff, canonicalOrigin, validateInputs, MAX_IMAGE_BYTES, PROTOCOL, READY_TIMEOUT_MS, SESSION_TIMEOUT_MS } from '../src/lobo-handoff.js';
 import { readFileSync } from 'node:fs';
 
 const ID = '12345678-1234-4234-9234-123456789abc';
@@ -15,6 +15,7 @@ function harness(inputs = { image: new Blob(['image bytes'], { type: 'image/png'
   const terminal = [];
   let opened = null;
   let timer = null;
+  let now = 0;
   const popup = {
     postMessage(data, origin) { posted.push({ data, origin }); },
     closed: false
@@ -28,7 +29,7 @@ function harness(inputs = { image: new Blob(['image bytes'], { type: 'image/png'
       const index = messages.findIndex(item => item.type === type && item.fn === fn);
       if (index >= 0) messages.splice(index, 1);
     },
-    setTimeout(fn, ms) { timer = { fn, ms }; return 1; },
+    setTimeout(fn, ms) { timer = { fn, ms, at: now + ms }; return 1; },
     clearTimeout() { timer = null; }
   };
   const session = beginHandoff({
@@ -44,7 +45,17 @@ function harness(inputs = { image: new Blob(['image bytes'], { type: 'image/png'
     protocol: PROTOCOL, type: 'result', requestId: ID, recipeId,
     completion: 'confirmed', output: { type: 'json', value: report }
   });
-  return { session, deliver, ready, result, terminal, posted, phases, get opened() { return opened; }, get timer() { return timer; } };
+  const advance = ms => {
+    const target = now + ms;
+    if (timer && timer.at <= target) {
+      now = timer.at;
+      const callback = timer.fn;
+      timer = null;
+      callback();
+    }
+    now = target;
+  };
+  return { session, deliver, ready, result, terminal, posted, phases, popup, advance, get opened() { return opened; }, get timer() { return timer; } };
 }
 
 test('only an HTTPS Workbench origin without credentials, path or query is accepted', () => {
@@ -65,7 +76,7 @@ test('popup invitation contains only origin and cryptographic nonce, never the i
   assert.equal(target.origin, PHONE);
   assert.equal(target.hash, '#lobo-handoff=v1&origin=' + encodeURIComponent(APP) + '&requestId=' + ID);
   assert.equal(env.posted.length, 0);
-  assert.equal(env.timer.ms, 240000);
+  assert.equal(env.timer.ms, READY_TIMEOUT_MS);
 });
 
 test('authenticated ready alone emits request to the exact verified phone origin', () => {
@@ -125,7 +136,7 @@ test('cancel and expiry prevent any later message from being accepted', () => {
   const expired = harness();
   expired.timer.fn();
   expired.ready();
-  assert.deepEqual(expired.terminal, [{ type: 'expired' }]);
+  assert.deepEqual(expired.terminal, [{ type: 'expired', stage: 'ready' }]);
 });
 
 test('request rejects unknown Recipe names, text/image limits and unsafe MIME types', () => {
@@ -145,6 +156,53 @@ test('text-only handoff supports other existing Workbench Recipes', () => {
   env.deliver({ protocol: PROTOCOL, type: 'result', requestId: ID,
     recipeId: 'extract-to-json', completion: 'confirmed', output: { type: 'text', value: 'Example' } });
   assert.equal(env.terminal[0].output.value, 'Example');
+});
+
+test('a completed Recipe can return after the old four-minute timeout without being discarded', () => {
+  const env = harness();
+  env.advance(READY_TIMEOUT_MS - 1000);
+  env.ready();
+  assert.equal(env.timer.ms, SESSION_TIMEOUT_MS);
+  env.advance(4 * 60 * 1000 + 1000);
+  assert.equal(env.terminal.length, 0);
+  env.result();
+  assert.equal(env.terminal.length, 1);
+  assert.equal(env.terminal[0].type, 'result');
+  env.advance(SESSION_TIMEOUT_MS);
+  assert.equal(env.terminal.length, 1);
+});
+
+test('the connected Recipe window has a bounded wait, and late results cannot revive it', () => {
+  const env = harness();
+  env.ready();
+  env.advance(SESSION_TIMEOUT_MS - 1);
+  assert.equal(env.terminal.length, 0);
+  env.advance(1);
+  assert.deepEqual(env.terminal, [{ type: 'expired', stage: 'result' }]);
+  env.result();
+  assert.equal(env.terminal.length, 1);
+});
+
+test('a matched but malformed result is explained without accepting it or abandoning a later valid result', () => {
+  const env = harness();
+  env.ready();
+  env.deliver({
+    protocol: PROTOCOL, type: 'result', requestId: ID, recipeId: 'nutrition-label-facts',
+    completion: 'confirmed', output: { type: 'json', value: [] }
+  });
+  assert.equal(env.terminal.length, 0);
+  assert.equal(env.phases.at(-1), 'rejected-result');
+  env.result();
+  assert.equal(env.terminal[0].type, 'result');
+});
+
+test('a request postMessage failure terminates safely without an unhandled exception', () => {
+  const env = harness();
+  env.popup.postMessage = () => { throw new Error('opener closed'); };
+  env.ready();
+  assert.deepEqual(env.terminal, [{ type: 'unavailable', code: 'REQUEST_DELIVERY_FAILED' }]);
+  env.result();
+  assert.equal(env.terminal.length, 1);
 });
 
 test('oversized or malformed results are not accepted', () => {

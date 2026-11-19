@@ -128,9 +128,12 @@ function createLabelAssistant({ getExisting, applyValues }) {
     const reason = {
       declined: 'LOBO did not approve this request.',
       cancelled: 'Stopped listening. This does not stop inference already running on the phone.',
-      expired: 'The LOBO handoff expired.'
+      expired: result.stage === 'ready'
+        ? 'LOBO did not establish a handoff in time. Check the phone address, certificate, and whether the Workbench opened.'
+        : 'LOBO did not return a confirmed result within 15 minutes after connecting. The Recipe may have finished on the phone, but Wellspan cannot accept an expired handoff.',
+      unavailable: 'LOBO could not receive the handoff request. Check the Workbench window and retry.'
     };
-    statusText(reason[result.type] || 'LOBO could not return an approved result: ' + (result.code || 'unknown error'));
+    statusText(reason[result.type] || 'LOBO did not return a usable result: ' + (result.code || 'unknown error'));
   }
 
   photo.addEventListener('change', () => {
@@ -163,10 +166,15 @@ function createLabelAssistant({ getExisting, applyValues }) {
         phoneOrigin: origin.value,
         recipeId: 'nutrition-label-facts',
         inputs: { image: photo.files?.[0] },
-        onStatus: phase => {
-          if (session === currentSession) statusText(phase === 'awaiting-ready'
-            ? 'Waiting for LOBO Workbench to connect.'
-            : 'Approve the image and Recipe in the LOBO Workbench window.');
+        onStatus: (phase, details) => {
+          if (session !== currentSession || !dialog.open) return;
+          if (phase === 'awaiting-ready') {
+            statusText('Waiting for LOBO Workbench to connect.');
+          } else if (phase === 'awaiting-approval') {
+            statusText('LOBO received the label. Waiting for the Recipe result; this can take several minutes.');
+          } else if (phase === 'rejected-result') {
+            statusText('LOBO sent a result that Wellspan rejected (' + details.code + '). No values were applied; waiting for a valid result.');
+          }
         },
         onTerminal: terminal => onTerminal(terminal, currentSession)
       });

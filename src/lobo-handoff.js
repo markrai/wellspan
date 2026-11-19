@@ -2,7 +2,8 @@ const PROTOCOL = 'lobo.handoff/v1';
 const MAX_TEXT = 16384;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_RESULT_CHARS = 128 * 1024;
-const SESSION_TIMEOUT_MS = 240000;
+const READY_TIMEOUT_MS = 90 * 1000;
+const SESSION_TIMEOUT_MS = 15 * 60 * 1000;
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const RECIPE_ID = /^[a-z][a-z0-9-]{0,63}$/;
@@ -57,6 +58,11 @@ function beginHandoff({ phoneOrigin, recipeId, inputs, onStatus = () => {}, onTe
   let phase = 'opening';
   let timeout = null;
   const report = (name, payload) => { phase = name; onStatus(name, payload); };
+  const notice = (name, payload) => onStatus(name, payload);
+  const armTimeout = (duration, stage) => {
+    if (timeout !== null) win.clearTimeout(timeout);
+    timeout = win.setTimeout(() => finish('expired', { stage }), duration);
+  };
   const dispose = () => {
     win.removeEventListener('message', onMessage);
     if (timeout !== null) win.clearTimeout(timeout);
@@ -74,8 +80,14 @@ function beginHandoff({ phoneOrigin, recipeId, inputs, onStatus = () => {}, onTe
     if (!plain(data) || data.protocol !== PROTOCOL || data.requestId !== requestId) return;
     if (data.type === 'ready' && phase === 'awaiting-ready') {
       if (!exact(data, ['protocol', 'type', 'requestId'])) return;
-      popup.postMessage({ protocol: PROTOCOL, type: 'request', requestId, recipeId, inputs: source }, origin);
+      try {
+        popup.postMessage({ protocol: PROTOCOL, type: 'request', requestId, recipeId, inputs: source }, origin);
+      } catch {
+        finish('unavailable', { code: 'REQUEST_DELIVERY_FAILED' });
+        return;
+      }
       report('awaiting-approval');
+      armTimeout(SESSION_TIMEOUT_MS, 'result');
       return;
     }
     if (phase !== 'awaiting-approval') return;
@@ -88,16 +100,30 @@ function beginHandoff({ phoneOrigin, recipeId, inputs, onStatus = () => {}, onTe
       finish('failed', { code: data.code });
       return;
     }
-    if (data.type !== 'result' || !exact(data, ['protocol', 'type', 'requestId', 'recipeId', 'completion', 'output']) ||
+    if (data.type !== 'result') return;
+    if (!exact(data, ['protocol', 'type', 'requestId', 'recipeId', 'completion', 'output']) ||
       data.recipeId !== recipeId || data.completion !== 'confirmed' || !plain(data.output) ||
-      !exact(data.output, ['type', 'value'])) return;
+      !exact(data.output, ['type', 'value'])) {
+      notice('rejected-result', { code: 'INVALID_ENVELOPE' });
+      return;
+    }
     const output = data.output;
-    if (output.type === 'text' && typeof output.value !== 'string') return;
-    if (output.type === 'json' && !plain(output.value)) return;
-    if (!['text', 'json'].includes(output.type)) return;
+    if (!['text', 'json'].includes(output.type) ||
+      (output.type === 'text' && typeof output.value !== 'string') ||
+      (output.type === 'json' && !plain(output.value))) {
+      notice('rejected-result', { code: 'INVALID_OUTPUT' });
+      return;
+    }
     let serialized;
-    try { serialized = JSON.stringify(output.value); } catch { return; }
-    if (typeof serialized !== 'string' || serialized.length > MAX_RESULT_CHARS) return;
+    try { serialized = JSON.stringify(output.value); }
+    catch {
+      notice('rejected-result', { code: 'INVALID_OUTPUT' });
+      return;
+    }
+    if (typeof serialized !== 'string' || serialized.length > MAX_RESULT_CHARS) {
+      notice('rejected-result', { code: 'RESULT_TOO_LARGE' });
+      return;
+    }
     finish('result', { recipeId, output, completion: 'confirmed' });
   }
   win.addEventListener('message', onMessage);
@@ -112,7 +138,7 @@ function beginHandoff({ phoneOrigin, recipeId, inputs, onStatus = () => {}, onTe
     throw new Error('The Workbench window was blocked by the browser');
   }
   report('awaiting-ready');
-  timeout = win.setTimeout(() => finish('expired'), SESSION_TIMEOUT_MS);
+  armTimeout(READY_TIMEOUT_MS, 'ready');
   return {
     requestId,
     popup,
@@ -121,4 +147,4 @@ function beginHandoff({ phoneOrigin, recipeId, inputs, onStatus = () => {}, onTe
   };
 }
 
-export { PROTOCOL, MAX_TEXT, MAX_IMAGE_BYTES, MAX_RESULT_CHARS, SESSION_TIMEOUT_MS, canonicalOrigin, validateInputs, beginHandoff };
+export { PROTOCOL, MAX_TEXT, MAX_IMAGE_BYTES, MAX_RESULT_CHARS, READY_TIMEOUT_MS, SESSION_TIMEOUT_MS, canonicalOrigin, validateInputs, beginHandoff };
