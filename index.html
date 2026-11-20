@@ -95,7 +95,15 @@
           <section class="label-assistant field full" aria-label="Auto-populate nutrition from label">
             <div class="form-subtitle">Auto-populate from a label</div>
             <p class="label-note">Uses your LOBO Android Workbench, with automatic runs for previously trusted integrations. Nothing is saved automatically.</p>
-            <label for="label-origin">LOBO Workbench HTTPS origin</label>
+            <div class="lobo-discovery">
+              <label for="label-device">Nearby LOBO devices</label>
+              <div class="lobo-device-row">
+                <select id="label-device" aria-describedby="label-discovery-status" disabled><option value="">Manual HTTPS address</option></select>
+                <button type="button" class="button small" id="label-refresh-devices">Refresh</button>
+              </div>
+              <p class="label-note" id="label-discovery-status" role="status" aria-live="polite">Looking for LOBO devices on Vega’s LAN…</p>
+            </div>
+            <label for="label-origin">LOBO Workbench HTTPS origin (manual override)</label>
             <input id="label-origin" type="url" inputmode="url" spellcheck="false" autocomplete="off" placeholder="https://192.168.1.200:7869">
             <label id="label-photo-title" for="label-photo">Nutrition Facts photo</label>
             <div id="label-drop-zone" class="label-drop-zone" role="group" tabindex="0" aria-labelledby="label-photo-title" aria-describedby="label-drop-hint label-file-name">
