@@ -245,7 +245,7 @@ test('LOBO M3 mock cross-origin popup requires a user-approved result', async ({
   expect(await (await request.get(server.url + '/api/v1/state')).json()).toEqual({ revision: 0, state: null });
 });
 
-test('food modal receives a confirmed LOBO result but only applies values after serving confirmation', async ({ page, context, request, server }) => {
+test('confirmed LOBO result fills editable fields immediately without an automatic save', async ({ page, context, request, server }) => {
   const mock = readFileSync(new URL('./mock-lobo.html', import.meta.url), 'utf8');
   const sample = readFileSync(new URL('../../probe/fixtures/supported-nutrition.json', import.meta.url), 'utf8');
   await context.route('https://phone.example:7869/**', route => route.fulfill({
@@ -270,13 +270,13 @@ test('food modal receives a confirmed LOBO result but only applies values after 
   await expect(page.locator('#label-review')).toBeVisible({ timeout: 15000 });
   await expect(page.locator('#label-fields')).toContainText('185 kcal');
   expect(await page.evaluate(() => localStorage.getItem('wellspan.lobo.lastWorkbench/v1'))).toBe('https://phone.example:7869');
-  await expect(page.locator('#field-calories')).toHaveValue('');
-  await expect(page.locator('#field-protein')).toHaveValue('9');
-  await expect(page.locator('#label-apply')).toBeDisabled();
-  await page.locator('#label-portion-confirm').check();
-  await expect(page.locator('#label-apply')).toBeEnabled();
-  await page.locator('#label-apply').click();
+  await expect(page.locator('#label-portion-confirm')).toHaveCount(0);
+  await expect(page.locator('#label-apply')).toHaveCount(0);
+  await expect(page.locator('#label-fields tr')).toHaveCount(3);
+  await expect(page.locator('#label-status')).toContainText('filled 2 nutrient fields');
   await expect(page.locator('#field-calories')).toHaveValue('185');
+  await expect(page.locator('#field-protein')).toHaveValue('4.3');
+  await page.locator('#field-protein').fill('9');
   await expect(page.locator('#field-protein')).toHaveValue('9');
   const remote = await (await request.get(server.url + '/api/v1/state')).json();
   expect(remote.revision).toBe(1);
@@ -415,7 +415,7 @@ test('label image picker, drop and clipboard paste share preview and reject inva
   expect(remote.state.foods[0].nutrients.calories).toBeNull();
 });
 
-test('pasted Nutrition Facts image reaches LOBO without skipping manual review', async ({ page, context, request, server }) => {
+test('pasted Nutrition Facts image fills editable fields without saving automatically', async ({ page, context, request, server }) => {
   const mock = readFileSync(new URL('./mock-lobo.html', import.meta.url), 'utf8');
   const sample = readFileSync(new URL('../../probe/fixtures/supported-nutrition.json', import.meta.url), 'utf8');
   await context.route('https://phone.example:7869/**', route => route.fulfill({
@@ -439,19 +439,19 @@ test('pasted Nutrition Facts image reaches LOBO without skipping manual review',
   await popup.locator('#approve').click();
   await expect(page.locator('#label-review')).toBeVisible({ timeout: 15000 });
   await expect(page.locator('#label-fields')).toContainText('185 kcal');
-  await expect(page.locator('#field-calories')).toHaveValue('');
-  await expect(page.locator('#label-apply')).toBeDisabled();
+  await expect(page.locator('#field-calories')).toHaveValue('185');
+  await expect(page.locator('#label-apply')).toHaveCount(0);
   const remote = await (await request.get(server.url + '/api/v1/state')).json();
   expect(remote.revision).toBe(1);
   expect(remote.state.foods[0].nutrients.calories).toBeNull();
 });
 
-test('label assistant cannot mutate food values without explicit approval', async ({ page, request, server }) => {
+test('label assistant cannot mutate food values without a valid extraction result', async ({ page, request, server }) => {
   await setupStarter(page, server);
   await page.getByRole('button', { name: 'Edit Walnuts' }).click();
   await expect(page.locator('#label-run')).toBeVisible();
   await expect(page.locator('#label-review')).toBeHidden();
-  await expect(page.locator('#label-apply')).toBeDisabled();
+  await expect(page.locator('#label-apply')).toHaveCount(0);
   await page.locator('#field-protein').fill('9');
   await page.locator('#label-run').click();
   await expect(page.locator('#label-status')).toContainText('Cannot start LOBO');

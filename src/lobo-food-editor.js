@@ -37,20 +37,22 @@ function prepareLabelReview(report) {
   return { ok: true, errors: [], rows, serving: result.serving };
 }
 
-function approvedLabelValues(review, keys, confirmedPortion) {
-  if (!review?.ok || !confirmedPortion) throw new Error('Confirm that the label serving matches your usual portion.');
-  if (!Array.isArray(keys) || !keys.length || new Set(keys).size !== keys.length) throw new Error('Select at least one unique nutrient to apply.');
-  const rows = new Map(review.rows.map(row => [row.key, row]));
+function extractedLabelValues(review) {
+  if (!review?.ok || !Array.isArray(review.rows)) throw new Error('Only a valid extraction report can populate the editor.');
   const values = {};
-  for (const key of keys) {
-    const row = rows.get(key);
-    if (!row || typeof row.value !== 'number' || !Number.isFinite(row.value) || row.value < 0) throw new Error('Selected nutrient is unavailable or invalid.');
-    values[key] = row.value;
+  for (const row of review.rows) {
+    if (row.value === null) continue;
+    if (!Object.hasOwn(FRIENDLY, row.key) || Object.hasOwn(values, row.key) ||
+      typeof row.value !== 'number' || !Number.isFinite(row.value) || row.value < 0) {
+      throw new Error('Extraction contains an invalid or duplicate nutrient.');
+    }
+    values[row.key] = row.value;
   }
+  if (!Object.keys(values).length) throw new Error('The extraction contains no valid nutrients.');
   return values;
 }
 
-function createLabelAssistant({ getExisting, applyValues }) {
+function createLabelAssistant({ applyValues }) {
   const $ = id => document.getElementById(id);
   const dialog = $('food-dialog');
   const photo = $('label-photo');
@@ -62,8 +64,6 @@ function createLabelAssistant({ getExisting, applyValues }) {
   const run = $('label-run');
   const stop = $('label-stop');
   const reviewPanel = $('label-review');
-  const apply = $('label-apply');
-  const portion = $('label-portion-confirm');
   const table = $('label-fields');
   const image = $('label-photo-preview');
   let session = 0;
@@ -169,8 +169,6 @@ function createLabelAssistant({ getExisting, applyValues }) {
     review = null;
     table.replaceChildren();
     reviewPanel.hidden = true;
-    portion.checked = false;
-    apply.disabled = true;
   }
   function stopListening() {
     if (active) {
@@ -198,9 +196,6 @@ function createLabelAssistant({ getExisting, applyValues }) {
   function open() {
     void discoverDevices();
   }
-  function updateApply() {
-    apply.disabled = !review?.ok || !portion.checked || table.querySelectorAll('input[data-nutrient]:checked').length === 0;
-  }
   function showReview(report) {
     clearReview();
     review = prepareLabelReview(report);
@@ -208,31 +203,29 @@ function createLabelAssistant({ getExisting, applyValues }) {
       statusText('LOBO extraction was not eligible: ' + review.errors.join('; '));
       return;
     }
+    let values;
+    try {
+      values = extractedLabelValues(review);
+    } catch (error) {
+      statusText('LOBO extraction was not eligible: ' + (error?.message || 'invalid nutrients'));
+      return;
+    }
     const serving = review.serving.map(item => item.value === null ? item.id + ': not printed' : item.id + ': ' + String(item.value)).join(' · ');
     $('label-serving').textContent = serving || 'Serving details were not supplied. Check the original label.';
     for (const row of review.rows) {
       const tr = document.createElement('tr');
-      const selection = document.createElement('td');
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.dataset.nutrient = row.key;
-      checkbox.disabled = row.value === null;
-      checkbox.checked = row.value !== null && getExisting(row.key) === '';
-      checkbox.setAttribute('aria-label', 'Use ' + row.label);
-      checkbox.addEventListener('change', updateApply);
-      selection.append(checkbox);
       const nutrient = document.createElement('td');
       nutrient.textContent = row.label;
       const value = document.createElement('td');
       value.textContent = row.value === null ? 'Not printed' : String(row.value) + ' ' + row.unit;
       const evidence = document.createElement('td');
       evidence.textContent = row.evidence || 'No printed value';
-      tr.append(selection, nutrient, value, evidence);
+      tr.append(nutrient, value, evidence);
       table.append(tr);
     }
+    applyValues(values);
     reviewPanel.hidden = false;
-    statusText('LOBO returned checked values. Compare the image, evidence and serving before applying.');
-    updateApply();
+    statusText('LOBO filled ' + Object.keys(values).length + ' nutrient fields in the editor. Review the serving and edit values as needed. Save food to keep changes.');
   }
   function onTerminal(result, expectedSession) {
     if (expectedSession !== session || !dialog.open) return;
@@ -291,20 +284,8 @@ function createLabelAssistant({ getExisting, applyValues }) {
     }
   });
   stop.addEventListener('click', () => { if (active) stopListening(); });
-  portion.addEventListener('change', updateApply);
-  apply.addEventListener('click', () => {
-    try {
-      const keys = [...table.querySelectorAll('input[data-nutrient]:checked')].map(input => input.dataset.nutrient);
-      const values = approvedLabelValues(review, keys, portion.checked);
-      applyValues(values);
-      statusText('Applied ' + keys.length + ' selected nutrient values to the editor. Save food to persist them.');
-      apply.disabled = true;
-    } catch (error) {
-      statusText(error?.message || 'Unable to apply values.');
-    }
-  });
   dialog.addEventListener('close', reset);
   return { reset, open };
 }
 
-export { LAST_WORKBENCH_KEY, rememberedWorkbench, rememberWorkbench, prepareLabelReview, approvedLabelValues, createLabelAssistant };
+export { LAST_WORKBENCH_KEY, rememberedWorkbench, rememberWorkbench, prepareLabelReview, extractedLabelValues, createLabelAssistant };
