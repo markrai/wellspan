@@ -287,6 +287,67 @@ test('food modal receives a confirmed LOBO result but only applies values after 
   await expect(page.locator('#label-origin')).toHaveValue('https://phone.example:7869');
 });
 
+test('Wellspan suggests one advertised LOBO and preserves a manual address on refresh', async ({ page, server }) => {
+  const advertised = {
+    status: 'available',
+    devices: [{ id: 'LOBO-8207D3', host: 'goat.local', address: '192.168.1.200', port: 7869, proto: '1', path: '/v1' }]
+  };
+  await page.route('**/api/v1/lobo/devices', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify(advertised)
+  }));
+  await setupStarter(page, server);
+  await page.getByRole('button', { name: 'Edit Walnuts' }).click();
+  await expect(page.locator('#label-device')).toHaveValue('LOBO-8207D3');
+  await expect(page.locator('#label-origin')).toHaveValue('https://192.168.1.200:7869');
+  await expect(page.locator('#label-discovery-status')).toContainText('Browser HTTPS trust');
+
+  await page.locator('#label-origin').fill('https://manual.example:7869');
+  await page.locator('#label-refresh-devices').click();
+  await expect(page.locator('#label-discovery-status')).toContainText('Choose one or enter an address');
+  await expect(page.locator('#label-origin')).toHaveValue('https://manual.example:7869');
+  expect(await page.evaluate(() => localStorage.getItem('wellspan.lobo.preferredDevice/v1'))).toBeNull();
+});
+
+test('verified LOBO choice follows the same identity across a DHCP address change', async ({ page, context, server }) => {
+  const mock = readFileSync(new URL('./mock-lobo.html', import.meta.url), 'utf8');
+  const sample = readFileSync(new URL('../../probe/fixtures/supported-nutrition.json', import.meta.url), 'utf8');
+  let address = '192.168.1.201';
+  await page.route('**/api/v1/lobo/devices', route => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ status: 'available', devices: [
+      { id: 'LOBO-8207D3', host: 'goat.local', address: '192.168.1.200', port: 7869, proto: '1', path: '/v1' },
+      { id: 'LOBO-17AE84', host: 'whale.local', address, port: 7869, proto: '1', path: '/v1' }
+    ] })
+  }));
+  await context.route('https://192.168.1.201:7869/**', route => route.fulfill({
+    status: 200, contentType: 'text/html', body: mock.replace('__REPORT__', sample)
+  }));
+  await setupStarter(page, server);
+  await page.getByRole('button', { name: 'Edit Walnuts' }).click();
+  await expect(page.locator('#label-device')).toBeEnabled();
+  await expect(page.locator('#label-origin')).toHaveValue('');
+  await page.locator('#label-device').selectOption('LOBO-17AE84');
+  await expect(page.locator('#label-origin')).toHaveValue('https://192.168.1.201:7869');
+  await page.locator('#label-photo').setInputFiles({
+    name: 'nutrition.png', mimeType: 'image/png', buffer: Buffer.from('mock nutrition label')
+  });
+  const popupEvent = page.waitForEvent('popup');
+  await page.locator('#label-run').click();
+  const popup = await popupEvent;
+  await expect(popup.locator('#approve')).toBeVisible({ timeout: 15000 });
+  await popup.locator('#approve').click();
+  await expect(page.locator('#label-review')).toBeVisible({ timeout: 15000 });
+  expect(await page.evaluate(() => localStorage.getItem('wellspan.lobo.preferredDevice/v1'))).toBe('LOBO-17AE84');
+  expect(await page.evaluate(() => localStorage.getItem('wellspan.lobo.lastWorkbench/v1'))).toBe('https://192.168.1.201:7869');
+
+  await page.locator('#cancel-button').click();
+  address = '192.168.1.222';
+  await page.reload();
+  await page.getByRole('button', { name: 'Edit Walnuts' }).click();
+  await expect(page.locator('#label-device')).toHaveValue('LOBO-17AE84');
+  await expect(page.locator('#label-origin')).toHaveValue('https://192.168.1.222:7869');
+});
+
 test('label image picker, drop and clipboard paste share preview and reject invalid files', async ({ page, request, server }) => {
   await setupStarter(page, server);
   await page.getByRole('button', { name: 'Edit Walnuts' }).click();
