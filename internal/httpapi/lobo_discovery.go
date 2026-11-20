@@ -75,6 +75,10 @@ func readLoboDiscovery(path string, now time.Time) loboDiscoveryResponse {
 		return unavailable
 	}
 	defer file.Close()
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() || info.Size() > 16384 {
+		return unavailable
+	}
 	var snapshot loboSnapshot
 	decoder := json.NewDecoder(io.LimitReader(file, 16385))
 	decoder.DisallowUnknownFields()
