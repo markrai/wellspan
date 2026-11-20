@@ -376,7 +376,6 @@ import { createLabelAssistant } from './lobo-food-editor.js';
         $('field-sodium').value = raw === '' ? '' : String(Number((Number(raw) * 400).toFixed(6)));
       }
       const labelAssistant = createLabelAssistant({
-        getExisting: key => $(fieldId(key)).value,
         applyValues: values => {
           for (const [key, value] of Object.entries(values)) $(fieldId(key)).value = String(value);
           if (Object.hasOwn(values, 'sodium')) syncSaltFromSodium();
