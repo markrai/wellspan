@@ -8,6 +8,7 @@ CANDIDATE="wellspan:staging-candidate"
 ROLLBACK_IMAGE="wellspan:staging-rollback"
 VOLUME="wellspan-staging-data"
 BIND="127.0.0.1:18788:8080"
+DISCOVERY_DIR="/var/lib/wellspan-lobo"
 BASE_URL="http://127.0.0.1:18788"
 replacement_started=0
 deployment_complete=0
@@ -62,6 +63,10 @@ wait_healthy() {
 }
 
 start_container() {
+  local -a discovery_mount=()
+  if [[ -d "$DISCOVERY_DIR" && ! -L "$DISCOVERY_DIR" ]]; then
+    discovery_mount=(-v "$DISCOVERY_DIR:/discovery:ro")
+  fi
   docker run -d \
     --name "$CONTAINER" \
     --restart unless-stopped \
@@ -71,6 +76,7 @@ start_container() {
     --cap-drop ALL \
     -p "$BIND" \
     -v "$VOLUME:/data" \
+    "${discovery_mount[@]}" \
     "$IMAGE"
 }
 
