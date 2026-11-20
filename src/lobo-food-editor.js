@@ -1,9 +1,30 @@
-import { beginHandoff } from './lobo-handoff.js';
+import { beginHandoff, canonicalOrigin } from './lobo-handoff.js';
+import { normalizeDiscovery, chooseDevice, preferredDevice, rememberDevice } from './lobo-discovery.js';
 import { createLabelImageInput } from './label-image-input.js';
 import { NUTRIENTS, assessExtractionReport } from './lobo-report.js';
 
 const UNITS = Object.freeze({ calories: 'kcal', protein: 'g', carbs: 'g', fat: 'g', satFat: 'g', fiber: 'g', sugars: 'g', sodium: 'mg', cholesterol: 'mg' });
 const FRIENDLY = Object.freeze({ calories: 'Calories', protein: 'Protein', carbs: 'Total carbohydrates', fat: 'Total fat', satFat: 'Saturated fat', fiber: 'Fiber', sugars: 'Total sugars', sodium: 'Sodium', cholesterol: 'Cholesterol' });
+const LAST_WORKBENCH_KEY = 'wellspan.lobo.lastWorkbench/v1';
+
+function rememberedWorkbench(storage) {
+  try {
+    const value = storage?.getItem(LAST_WORKBENCH_KEY);
+    return value && canonicalOrigin(value) === value ? value : '';
+  } catch {
+    return '';
+  }
+}
+
+function rememberWorkbench(storage, value) {
+  try {
+    const origin = canonicalOrigin(value);
+    storage?.setItem(LAST_WORKBENCH_KEY, origin);
+    return origin;
+  } catch {
+    return '';
+  }
+}
 
 function prepareLabelReview(report) {
   const result = assessExtractionReport(report);
@@ -34,6 +55,9 @@ function createLabelAssistant({ getExisting, applyValues }) {
   const dialog = $('food-dialog');
   const photo = $('label-photo');
   const origin = $('label-origin');
+  const devicePicker = $('label-device');
+  const refreshDevices = $('label-refresh-devices');
+  const discoveryStatus = $('label-discovery-status');
   const status = $('label-status');
   const run = $('label-run');
   const stop = $('label-stop');
@@ -45,7 +69,89 @@ function createLabelAssistant({ getExisting, applyValues }) {
   let session = 0;
   let active = null;
   let review = null;
-  let lastOrigin = '';
+  const preferenceStorage = (() => {
+    try { return window.localStorage; } catch { return null; }
+  })();
+  let lastOrigin = rememberedWorkbench(preferenceStorage);
+  let discovered = [];
+  let discoverySession = 0;
+  let manualOverride = false;
+
+  function discoveryMessage(message) { discoveryStatus.textContent = message; }
+  function renderDevices(devices) {
+    devicePicker.replaceChildren();
+    const manual = document.createElement('option');
+    manual.value = '';
+    manual.textContent = 'Manual HTTPS address';
+    devicePicker.append(manual);
+    for (const device of devices) {
+      const option = document.createElement('option');
+      option.value = device.id;
+      option.textContent = device.id + ' · ' + device.origin;
+      devicePicker.append(option);
+    }
+    devicePicker.disabled = devices.length === 0;
+  }
+  async function discoverDevices() {
+    const expectedSession = ++discoverySession;
+    discoveryMessage('Looking for LOBO devices advertised on Vega’s LAN…');
+    refreshDevices.disabled = true;
+    try {
+      const result = await fetch('/api/v1/lobo/devices', {
+        method: 'GET', cache: 'no-store', credentials: 'same-origin',
+        signal: AbortSignal.timeout(7000)
+      });
+      if (!result.ok) throw new Error('discovery_unavailable');
+      const response = await result.json();
+      if (expectedSession !== discoverySession || !dialog.open) return;
+      discovered = normalizeDiscovery(response);
+      renderDevices(discovered);
+      const chosen = chooseDevice(discovered, preferredDevice(preferenceStorage), lastOrigin);
+      if (!manualOverride && chosen) {
+        origin.value = chosen.origin;
+        devicePicker.value = chosen.id;
+      } else {
+        devicePicker.value = discovered.find(device => device.origin === origin.value)?.id || '';
+      }
+      if (discovered.length === 0) {
+        discoveryMessage('No fresh LOBO advertisements from Vega. Your saved or manual address remains available.');
+      } else if (chosen && !manualOverride) {
+        discoveryMessage('Suggested ' + chosen.id + ' from Vega’s LAN. Browser HTTPS trust and reachability are still required.');
+      } else {
+        discoveryMessage(discovered.length + ' LOBO devices advertised on Vega’s LAN. Choose one or enter an address.');
+      }
+    } catch {
+      if (expectedSession === discoverySession && dialog.open) {
+        discovered = [];
+        renderDevices([]);
+        discoveryMessage('Discovery unavailable. Use your remembered Workbench or enter its HTTPS address.');
+      }
+    } finally {
+      if (expectedSession === discoverySession) refreshDevices.disabled = false;
+    }
+  }
+
+  devicePicker.addEventListener('change', () => {
+    const selected = discovered.find(device => device.id === devicePicker.value);
+    if (!selected) {
+      manualOverride = true;
+      return;
+    }
+    session++;
+    stopListening();
+    clearReview();
+    origin.value = selected.origin;
+    manualOverride = false;
+    discoveryMessage('Selected ' + selected.id + '. This LAN advertisement does not prove the phone is trusted or reachable.');
+  });
+  origin.addEventListener('input', () => {
+    session++;
+    stopListening();
+    clearReview();
+    manualOverride = true;
+    devicePicker.value = discovered.find(device => device.origin === origin.value)?.id || '';
+  });
+  refreshDevices.addEventListener('click', discoverDevices);
 
   const imageInput = createLabelImageInput({
     dialog, photo, preview: image,
@@ -77,11 +183,20 @@ function createLabelAssistant({ getExisting, applyValues }) {
   }
   function reset() {
     session += 1;
+    discoverySession += 1;
+    manualOverride = false;
+    discovered = [];
+    renderDevices([]);
+    refreshDevices.disabled = false;
+    discoveryMessage('Discovering LOBO devices requires the Vega LAN helper.');
     stopListening();
     clearReview();
     imageInput.reset();
     origin.value = lastOrigin;
     statusText('');
+  }
+  function open() {
+    void discoverDevices();
   }
   function updateApply() {
     apply.disabled = !review?.ok || !portion.checked || table.querySelectorAll('input[data-nutrient]:checked').length === 0;
@@ -149,8 +264,9 @@ function createLabelAssistant({ getExisting, applyValues }) {
     clearReview();
     const currentSession = session;
     try {
+      const requestedOrigin = canonicalOrigin(origin.value);
       const handoff = beginHandoff({
-        phoneOrigin: origin.value,
+        phoneOrigin: requestedOrigin,
         recipeId: 'nutrition-label-facts',
         inputs: { image: imageInput.image },
         onStatus: (phase, details) => {
@@ -158,6 +274,8 @@ function createLabelAssistant({ getExisting, applyValues }) {
           if (phase === 'awaiting-ready') {
             statusText('Waiting for LOBO Workbench to connect.');
           } else if (phase === 'awaiting-approval') {
+            lastOrigin = rememberWorkbench(preferenceStorage, requestedOrigin) || requestedOrigin;
+            rememberDevice(preferenceStorage, discovered.find(device => device.origin === requestedOrigin)?.id || '');
             statusText('LOBO received the label. Waiting for the Recipe result; this can take several minutes.');
           } else if (phase === 'rejected-result') {
             statusText('LOBO sent a result that Wellspan rejected (' + details.code + '). No values were applied; waiting for a valid result.');
@@ -166,7 +284,6 @@ function createLabelAssistant({ getExisting, applyValues }) {
         onTerminal: terminal => onTerminal(terminal, currentSession)
       });
       active = handoff;
-      lastOrigin = origin.value.trim();
       run.disabled = true;
       stop.hidden = false;
     } catch (error) {
@@ -187,7 +304,7 @@ function createLabelAssistant({ getExisting, applyValues }) {
     }
   });
   dialog.addEventListener('close', reset);
-  return { reset };
+  return { reset, open };
 }
 
-export { prepareLabelReview, approvedLabelValues, createLabelAssistant };
+export { LAST_WORKBENCH_KEY, rememberedWorkbench, rememberWorkbench, prepareLabelReview, approvedLabelValues, createLabelAssistant };

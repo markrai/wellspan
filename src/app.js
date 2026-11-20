@@ -363,6 +363,7 @@ import { createLabelAssistant } from './lobo-food-editor.js';
         checkNameDuplicate();
         updateGhost();
         $('food-dialog').showModal();
+        labelAssistant.open();
         $('field-name').focus();
       }
       const fieldId = key => 'field-' + key;
