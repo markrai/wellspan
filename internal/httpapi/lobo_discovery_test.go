@@ -44,6 +44,25 @@ func TestLoboDiscoveryFreshBoundedAndExpiry(t *testing.T) {
 	}
 }
 
+func TestLoboDiscoveryAcceptsAndroidHostnames(t *testing.T) {
+    now := time.Now().UTC()
+    devices := []discoveredLobo{
+        {ID: "LOBO-17AE84", Host: "Android_KVE8BTBH.local", Address: "192.168.1.200", Port: 7869, Proto: "1", Path: "/v1"},
+        {ID: "LOBO-8207D3", Host: "Android_AS6WJ011.local", Address: "192.168.1.186", Port: 7869, Proto: "1", Path: "/v1"},
+        {ID: "LOBO-AFA1AE", Host: "Android_P81IFKSA.local", Address: "192.168.1.182", Port: 7869, Proto: "1", Path: "/v1"},
+    }
+    path := fixtureLoboSnapshot(t, devices, now)
+    result := readLoboDiscovery(path, now)
+    if result.Status != "available" || len(result.Devices) != len(devices) {
+        t.Fatalf("Android Avahi hostnames should be accepted: %+v", result)
+    }
+    for index, want := range devices {
+        if result.Devices[index] != want {
+            t.Fatalf("device %d: got %+v, want %+v", index, result.Devices[index], want)
+        }
+    }
+}
+
 func TestLoboDiscoveryRejectsUnsafeDevices(t *testing.T) {
 	now := time.Now().UTC()
 	base := discoveredLobo{
@@ -57,6 +76,7 @@ func TestLoboDiscoveryRejectsUnsafeDevices(t *testing.T) {
 		"not-lobo": func(d *discoveredLobo) { d.ID = "SPOOF-8207D3" },
 		"bad-port": func(d *discoveredLobo) { d.Port = 65536 },
 		"bad-host": func(d *discoveredLobo) { d.Host = "host.attacker.example" },
+        "bad-host-punctuation": func(d *discoveredLobo) { d.Host = "Android/host.local" },
 		"wrong-proto": func(d *discoveredLobo) { d.Proto = "2" },
 		"wrong-path": func(d *discoveredLobo) { d.Path = "/admin" },
 	}
