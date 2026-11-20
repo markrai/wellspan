@@ -47,8 +47,8 @@ function rememberDevice(storage, id) {
 }
 
 function chooseDevice(devices, preferredId, lastOrigin) {
-  const known = devices.find(device => device.id === preferredId) ||
-    devices.find(device => device.origin === lastOrigin);
+  if (preferredId) return devices.find(device => device.id === preferredId) || null;
+  const known = devices.find(device => device.origin === lastOrigin);
   if (known) return known;
   return !lastOrigin && devices.length === 1 ? devices[0] : null;
 }
