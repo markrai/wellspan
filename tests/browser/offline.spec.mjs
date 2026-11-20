@@ -269,6 +269,7 @@ test('food modal receives a confirmed LOBO result but only applies values after 
   await popup.locator('#approve').click();
   await expect(page.locator('#label-review')).toBeVisible({ timeout: 15000 });
   await expect(page.locator('#label-fields')).toContainText('185 kcal');
+  expect(await page.evaluate(() => localStorage.getItem('wellspan.lobo.lastWorkbench/v1'))).toBe('https://phone.example:7869');
   await expect(page.locator('#field-calories')).toHaveValue('');
   await expect(page.locator('#field-protein')).toHaveValue('9');
   await expect(page.locator('#label-apply')).toBeDisabled();
@@ -280,6 +281,10 @@ test('food modal receives a confirmed LOBO result but only applies values after 
   const remote = await (await request.get(server.url + '/api/v1/state')).json();
   expect(remote.revision).toBe(1);
   expect(remote.state.foods[0].nutrients.calories).toBeNull();
+  await page.locator('#cancel-button').click();
+  await page.reload();
+  await page.getByRole('button', { name: 'Edit Walnuts' }).click();
+  await expect(page.locator('#label-origin')).toHaveValue('https://phone.example:7869');
 });
 
 test('label image picker, drop and clipboard paste share preview and reject invalid files', async ({ page, request, server }) => {
@@ -389,6 +394,7 @@ test('label assistant cannot mutate food values without explicit approval', asyn
   await page.locator('#field-protein').fill('9');
   await page.locator('#label-run').click();
   await expect(page.locator('#label-status')).toContainText('Cannot start LOBO');
+  expect(await page.evaluate(() => localStorage.getItem('wellspan.lobo.lastWorkbench/v1'))).toBeNull();
   await expect(page.locator('#field-protein')).toHaveValue('9');
   await page.locator('#cancel-button').click();
   const remote = await (await request.get(server.url + '/api/v1/state')).json();

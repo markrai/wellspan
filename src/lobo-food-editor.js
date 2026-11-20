@@ -1,9 +1,29 @@
-import { beginHandoff } from './lobo-handoff.js';
+import { beginHandoff, canonicalOrigin } from './lobo-handoff.js';
 import { createLabelImageInput } from './label-image-input.js';
 import { NUTRIENTS, assessExtractionReport } from './lobo-report.js';
 
 const UNITS = Object.freeze({ calories: 'kcal', protein: 'g', carbs: 'g', fat: 'g', satFat: 'g', fiber: 'g', sugars: 'g', sodium: 'mg', cholesterol: 'mg' });
 const FRIENDLY = Object.freeze({ calories: 'Calories', protein: 'Protein', carbs: 'Total carbohydrates', fat: 'Total fat', satFat: 'Saturated fat', fiber: 'Fiber', sugars: 'Total sugars', sodium: 'Sodium', cholesterol: 'Cholesterol' });
+const LAST_WORKBENCH_KEY = 'wellspan.lobo.lastWorkbench/v1';
+
+function rememberedWorkbench(storage) {
+  try {
+    const value = storage?.getItem(LAST_WORKBENCH_KEY);
+    return value && canonicalOrigin(value) === value ? value : '';
+  } catch {
+    return '';
+  }
+}
+
+function rememberWorkbench(storage, value) {
+  try {
+    const origin = canonicalOrigin(value);
+    storage?.setItem(LAST_WORKBENCH_KEY, origin);
+    return origin;
+  } catch {
+    return '';
+  }
+}
 
 function prepareLabelReview(report) {
   const result = assessExtractionReport(report);
@@ -45,7 +65,10 @@ function createLabelAssistant({ getExisting, applyValues }) {
   let session = 0;
   let active = null;
   let review = null;
-  let lastOrigin = '';
+  const preferenceStorage = (() => {
+    try { return window.localStorage; } catch { return null; }
+  })();
+  let lastOrigin = rememberedWorkbench(preferenceStorage);
 
   const imageInput = createLabelImageInput({
     dialog, photo, preview: image,
@@ -149,8 +172,9 @@ function createLabelAssistant({ getExisting, applyValues }) {
     clearReview();
     const currentSession = session;
     try {
+      const requestedOrigin = canonicalOrigin(origin.value);
       const handoff = beginHandoff({
-        phoneOrigin: origin.value,
+        phoneOrigin: requestedOrigin,
         recipeId: 'nutrition-label-facts',
         inputs: { image: imageInput.image },
         onStatus: (phase, details) => {
@@ -158,6 +182,7 @@ function createLabelAssistant({ getExisting, applyValues }) {
           if (phase === 'awaiting-ready') {
             statusText('Waiting for LOBO Workbench to connect.');
           } else if (phase === 'awaiting-approval') {
+            lastOrigin = rememberWorkbench(preferenceStorage, requestedOrigin) || requestedOrigin;
             statusText('LOBO received the label. Waiting for the Recipe result; this can take several minutes.');
           } else if (phase === 'rejected-result') {
             statusText('LOBO sent a result that Wellspan rejected (' + details.code + '). No values were applied; waiting for a valid result.');
@@ -166,7 +191,6 @@ function createLabelAssistant({ getExisting, applyValues }) {
         onTerminal: terminal => onTerminal(terminal, currentSession)
       });
       active = handoff;
-      lastOrigin = origin.value.trim();
       run.disabled = true;
       stop.hidden = false;
     } catch (error) {
@@ -190,4 +214,4 @@ function createLabelAssistant({ getExisting, applyValues }) {
   return { reset };
 }
 
-export { prepareLabelReview, approvedLabelValues, createLabelAssistant };
+export { LAST_WORKBENCH_KEY, rememberedWorkbench, rememberWorkbench, prepareLabelReview, approvedLabelValues, createLabelAssistant };
