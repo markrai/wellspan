@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/markrai/wellspan/internal/board"
 	"github.com/markrai/wellspan/internal/store"
@@ -27,6 +28,9 @@ func Handler(database *store.Store, staticDir string) http.Handler {
 			return
 		}
 		writeJSON(w, http.StatusOK, []byte(`{"ok":true}`), 0)
+	})
+	mux.HandleFunc("GET /api/v1/lobo/devices", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, discoveryJSON(loboDiscoveryPath(), time.Now().UTC()), 0)
 	})
 	mux.HandleFunc("GET /api/v1/state", func(w http.ResponseWriter, r *http.Request) {
 		snap, err := database.Read(r.Context())
