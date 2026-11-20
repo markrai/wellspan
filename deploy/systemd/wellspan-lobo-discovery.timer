@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh discovered LOBO LAN services
+
+[Timer]
+OnBootSec=15s
+OnUnitInactiveSec=15s
+AccuracySec=2s
+Unit=wellspan-lobo-discovery.service
+
+[Install]
+WantedBy=timers.target
