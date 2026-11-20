@@ -1,4 +1,4 @@
-const CACHE = 'wellspan-app-shell-v5';
+const CACHE = 'wellspan-app-shell-v6';
 const ASSETS = [
   '/',
   '/manifest.webmanifest',
@@ -6,6 +6,7 @@ const ASSETS = [
   '/src/theme-boot.js',
   '/src/app.js',
   '/src/lobo-food-editor.js',
+  '/src/label-image-input.js',
   '/src/lobo-handoff.js',
   '/src/lobo-report.js',
   '/src/model.js',
