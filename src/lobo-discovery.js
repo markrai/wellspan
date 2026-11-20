@@ -18,7 +18,7 @@ function normalizeDiscovery(reply) {
       !privateIPv4(device.address) || !Number.isInteger(device.port) ||
       device.port < 1 || device.port > 65535 || device.proto !== '1' ||
       device.path !== '/v1' || typeof device.host !== 'string' ||
-      !/^[a-zA-Z0-9.-]{1,253}\.local$/.test(device.host)) return [];
+      !/^[a-zA-Z0-9_.-]{1,253}\.local$/.test(device.host)) return [];
     ids.add(device.id);
     devices.push({ id: device.id, host: device.host, origin: `https://${device.address}:${device.port}` });
   }

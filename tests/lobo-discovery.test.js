@@ -32,6 +32,22 @@ test('fresh DNS-SD entries become strictly typed HTTPS origins', () => {
   assert.equal(privateIPv4('192.168.1.01'), false);
 });
 
+test('Android Avahi hostnames from Vega pass browser candidate validation', () => {
+  const discovered = normalizeDiscovery({ status: 'available', devices: [
+    { ...device('LOBO-17AE84', '192.168.1.200'), host: 'Android_KVE8BTBH.local' },
+    { ...device('LOBO-8207D3', '192.168.1.186'), host: 'Android_AS6WJ011.local' },
+    { ...device('LOBO-AFA1AE', '192.168.1.182'), host: 'Android_P81IFKSA.local' }
+  ] });
+  assert.deepEqual(discovered.map(item => [item.id, item.origin]), [
+    ['LOBO-17AE84', 'https://192.168.1.200:7869'],
+    ['LOBO-8207D3', 'https://192.168.1.186:7869'],
+    ['LOBO-AFA1AE', 'https://192.168.1.182:7869']
+  ]);
+  assert.deepEqual(normalizeDiscovery({ status: 'available', devices: [
+    { ...device('LOBO-AFA1AE', '192.168.1.182'), host: 'Android/host.local' }
+  ] }), []);
+});
+
 test('preferred identity survives a DHCP IP change and never picks a different phone', () => {
   const known = candidates();
   assert.equal(chooseDevice(known, 'LOBO-8207D3', 'https://192.168.1.50:7869').origin, 'https://192.168.1.200:7869');

@@ -27,7 +27,7 @@ def parse_line(line):
     _, interface, _, name, service, domain, host, address, port, *txt = parts
     if service != SERVICE_TYPE or domain != "local" or not NAME.fullmatch(name):
         return None
-    if not re.fullmatch(r"[a-zA-Z0-9.-]{1,253}", host) or not host.endswith(".local"):
+    if not re.fullmatch(r"[a-zA-Z0-9_.-]{1,253}", host) or not host.endswith(".local"):
         return None
     try:
         ip = ipaddress.IPv4Address(address)

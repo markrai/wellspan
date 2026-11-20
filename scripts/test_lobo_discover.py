@@ -18,6 +18,24 @@ class DiscoveryTest(unittest.TestCase):
         })
         self.assertEqual(parse_line(entry(name="LOBO-8207D3 (2)"))["id"], "LOBO-8207D3 (2)")
 
+    def test_vega_android_dns_sd_output_with_underscore_hostnames(self):
+        raw = [
+            '+;eno1;IPv4;LOBO-AFA1AE;_lobo._tcp;local',
+            '=;eno1;IPv6;LOBO-AFA1AE;_lobo._tcp;local;Android_P81IFKSA.local;192.168.1.182;7869;"proto=1" "path=/v1"',
+            '=;eno1;IPv4;LOBO-AFA1AE;_lobo._tcp;local;Android_P81IFKSA.local;192.168.1.182;7869;"proto=1" "path=/v1"',
+            '=;eno1;IPv4;LOBO-8207D3;_lobo._tcp;local;Android_AS6WJ011.local;192.168.1.186;7869;"proto=1" "path=/v1"',
+            '=;eno1;IPv4;LOBO-17AE84;_lobo._tcp;local;Android_KVE8BTBH.local;192.168.1.200;7869;"proto=1" "path=/v1"',
+        ]
+        devices = parse_results("\n".join(raw))
+        self.assertEqual(
+            [(item["id"], item["host"], item["address"]) for item in devices],
+            [
+                ("LOBO-17AE84", "Android_KVE8BTBH.local", "192.168.1.200"),
+                ("LOBO-8207D3", "Android_AS6WJ011.local", "192.168.1.186"),
+                ("LOBO-AFA1AE", "Android_P81IFKSA.local", "192.168.1.182"),
+            ],
+        )
+
     def test_ignore_non_lobo_and_unsafe_records(self):
         for row in [
             entry(name="other"), entry(address="8.8.8.8"), entry(address="127.0.0.1"),
@@ -25,6 +43,7 @@ class DiscoveryTest(unittest.TestCase):
             entry(txt='"proto=1" "path=/admin"'), entry().replace(";7869;", ";0;"),
             entry().replace(";IPv4;", ";IPv6;"), entry().replace(";local;", ";example;"),
             entry().replace(";lobo.local;", ";not-local.example;"),
+            entry().replace(";lobo.local;", ";bad/host.local;"),
             entry().replace(";_lobo._tcp;", ";_other._tcp;"),
             entry().replace(";192.168.1.200;", ";192.168.1.200;") + ";extra"
         ][:-1]:

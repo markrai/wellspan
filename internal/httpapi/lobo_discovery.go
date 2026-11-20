@@ -61,7 +61,7 @@ func validDiscoveredLobo(device discoveredLobo) bool {
 		if (character < 'a' || character > 'z') &&
 			(character < 'A' || character > 'Z') &&
 			(character < '0' || character > '9') &&
-			character != '.' && character != '-' {
+			character != '.' && character != '-' && character != '_' {
 			return false
 		}
 	}
