@@ -69,6 +69,55 @@ test('numeric evidence checks token values instead of numeric substrings', () =>
   assert.equal(numericEvidenceContains('Fat 0 g', 0), true);
 });
 
+test('serving grams accept only a matching weight linked to the printed serving', () => {
+  const report = read('supported-nutrition');
+  report.fields.unshift({
+    id: 'serving_size', label: 'Serving size as printed', type: 'text', required: false,
+    status: 'valid', value: '1/2 cup (125g)', reason: null,
+    evidence: 'Serving size 1/2 cup (125g)', support: 'matched'
+  });
+  report.fields[1].value = 125;
+  report.fields[1].evidence = '1/2 cup (125g)';
+  report.counts.valid += 1;
+  assert.equal(assessExtractionReport(report).ok, true);
+  assert.deepEqual(assessExtractionReport(report).serving, [
+    { id: 'serving_size', value: '1/2 cup (125g)' },
+    { id: 'serving_g', value: 125 }
+  ]);
+
+  const short = structuredClone(report);
+  short.fields[1].evidence = '125g';
+  assert.equal(assessExtractionReport(short).ok, true);
+
+  for (const [evidence, value] of [
+    ['Protein 125g', 125],
+    ['1/2 cup (125g)', 1],
+    ['1/2 cup (126g)', 125],
+    ['1/2 cup (125mg)', 125]
+  ]) {
+    const invalid = structuredClone(report);
+    invalid.fields[1].evidence = evidence;
+    invalid.fields[1].value = value;
+    assert.equal(assessExtractionReport(invalid).ok, false, evidence);
+  }
+
+  const unsupported = structuredClone(report);
+  unsupported.fields[0].support = 'unmatched';
+  assert.equal(assessExtractionReport(unsupported).ok, false);
+
+  const unrelated = structuredClone(report);
+  unrelated.fields[0].value = '2 tbsp (125g)';
+  unrelated.fields[0].evidence = 'Serving size 2 tbsp (125g)';
+  assert.equal(assessExtractionReport(unrelated).ok, false);
+
+  const withoutServingText = structuredClone(report);
+  withoutServingText.fields.shift();
+  withoutServingText.counts.valid -= 1;
+  assert.equal(assessExtractionReport(withoutServingText).ok, false);
+  withoutServingText.fields[0].evidence = 'Serving size 125g';
+  assert.equal(assessExtractionReport(withoutServingText).ok, true);
+});
+
 test('an explicit zero stays zero while an absent nutrient stays null', () => {
   const report = read('supported-nutrition');
   report.fields[2].value = 0;

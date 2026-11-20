@@ -4,7 +4,7 @@ This review-first integration uses the existing browser-to-Workbench lobo.handof
 
 1. Open Add/Edit Food. Enter the phone's trusted HTTPS Workbench origin and choose a PNG/JPEG/WebP label up to 5 MiB.
 2. Select Extract with LOBO. A previously trusted website-and-Recipe pair runs without additional authorization; otherwise authorize the built-in nutrition-label-facts Recipe in the Workbench.
-3. Wellspan validates the lobo.extract.report/v1 response and renders source evidence for each returned nutrient. Invalid or unsupported reports cannot be applied.
+3. Wellspan validates the lobo.extract.report/v1 response and renders source evidence for each returned nutrient. A serving-weight quote may omit the word serving when it is contained in a separate, matched printed serving description; the gram amount must still match exactly. Invalid or unsupported reports cannot be applied.
 4. Review the original photo and the printed serving. Existing field values are unchecked by default; missing values cannot be selected.
 5. Confirm that the printed serving matches your usual consumed portion, select nutrients and click Apply selected values to editor. This changes the form, not persistent state. Save Food is a separate user action under normal IndexedDB/Vega revision controls.
 

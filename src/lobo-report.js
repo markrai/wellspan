@@ -6,7 +6,6 @@ const TYPES = new Set(['text', 'number', 'date', 'boolean']);
 const STATUS = new Set(['valid', 'missing', 'invalid']);
 const SUPPORT = new Set(['matched', 'unmatched', 'none']);
 const EVIDENCE_TERMS = Object.freeze({
-  serving_g: /\b(serving|portion)\b/i,
   calories_kcal: /\b(calories|energy)\b/i,
   protein_g: /\bprotein\b/i,
   carbohydrate_g: /\b(carbohydrate|carbs?)\b/i,
@@ -39,7 +38,19 @@ function numericEvidenceContains(quote, value) {
   return numbers.some(part => Number(part.replaceAll(',', '')) === value);
 }
 
-function validateField(field, seen, errors) {
+function servingGramsEvidence(quote, value, fields) {
+  if (typeof quote !== 'string' || !Number.isFinite(value)) return false;
+  const weights = quote.matchAll(/(?:^|[^\d.])((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)\s*(?:g|grams?)\b/gi);
+  if (![...weights].some(match => Number(match[1].replaceAll(',', '')) === value)) return false;
+  if (/\b(serving|portion)\b/i.test(quote)) return true;
+  const printed = fields.find(item => item?.id === 'serving_size' && item.status === 'valid' &&
+    item.type === 'text' && item.support === 'matched' && typeof item.value === 'string');
+  if (!printed) return false;
+  const normalize = text => text.replace(/\s+/g, ' ').trim().toLocaleLowerCase();
+  return normalize(printed.value).includes(normalize(quote));
+}
+
+function validateField(field, seen, errors, fields) {
   if (!exactly(field, FIELD_KEYS)) {
     errors.push('Field contains missing or unexpected properties');
     return;
@@ -79,8 +90,10 @@ function validateField(field, seen, errors) {
     if (field.type === 'number' && field.support === 'matched' && !numericEvidenceContains(field.evidence, value)) {
       errors.push(id + ': numeric value does not appear in its quoted evidence');
     }
-    if (field.type === 'number' && field.support === 'matched' && EVIDENCE_TERMS[id] &&
-      !EVIDENCE_TERMS[id].test(field.evidence || '')) {
+    if (field.type === 'number' && field.support === 'matched' &&
+      (id === 'serving_g'
+        ? !servingGramsEvidence(field.evidence, value, fields)
+        : EVIDENCE_TERMS[id] && !EVIDENCE_TERMS[id].test(field.evidence || ''))) {
       errors.push(id + ': quoted evidence does not identify the expected nutrition field');
     }
     if (field.type === 'text' && typeof value === 'string' && field.support === 'matched' &&
@@ -109,7 +122,7 @@ function assessExtractionReport(report) {
   if (report.status !== 'valid') errors.push('LOBO reported invalid extraction');
   if (report.problems.length) errors.push('LOBO reported extraction problems');
   const seen = new Set();
-  for (const field of report.fields) validateField(field, seen, errors);
+  for (const field of report.fields) validateField(field, seen, errors, report.fields);
   for (const name of ['valid', 'missing', 'invalid']) {
     if (report.counts[name] !== report.fields.filter(field => field?.status === name).length) {
       errors.push('Incorrect ' + name + ' field count');
