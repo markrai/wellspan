@@ -1,4 +1,5 @@
 import { beginHandoff } from './lobo-handoff.js';
+import { createLabelImageInput } from './label-image-input.js';
 import { NUTRIENTS, assessExtractionReport } from './lobo-report.js';
 
 const UNITS = Object.freeze({ calories: 'kcal', protein: 'g', carbs: 'g', fat: 'g', satFat: 'g', fiber: 'g', sugars: 'g', sodium: 'mg', cholesterol: 'mg' });
@@ -44,8 +45,18 @@ function createLabelAssistant({ getExisting, applyValues }) {
   let session = 0;
   let active = null;
   let review = null;
-  let previewUrl = null;
   let lastOrigin = '';
+
+  const imageInput = createLabelImageInput({
+    dialog, photo, preview: image,
+    dropZone: $('label-drop-zone'), browse: $('label-browse'), paste: $('label-paste'),
+    fileName: $('label-file-name'), notify: statusText,
+    beforeReplace: () => {
+      session += 1;
+      stopListening();
+      clearReview();
+    }
+  });
 
   function statusText(message) { status.textContent = message; }
   function clearReview() {
@@ -68,11 +79,7 @@ function createLabelAssistant({ getExisting, applyValues }) {
     session += 1;
     stopListening();
     clearReview();
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    previewUrl = null;
-    image.removeAttribute('src');
-    image.hidden = true;
-    photo.value = '';
+    imageInput.reset();
     origin.value = lastOrigin;
     statusText('');
   }
@@ -136,26 +143,6 @@ function createLabelAssistant({ getExisting, applyValues }) {
     statusText(reason[result.type] || 'LOBO did not return a usable result: ' + (result.code || 'unknown error'));
   }
 
-  photo.addEventListener('change', () => {
-    session += 1;
-    stopListening();
-    clearReview();
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    previewUrl = null;
-    image.hidden = true;
-    image.removeAttribute('src');
-    const file = photo.files?.[0];
-    if (file && ['image/png', 'image/jpeg', 'image/webp'].includes(file.type) && file.size <= 5 * 1024 * 1024) {
-      previewUrl = URL.createObjectURL(file);
-      image.src = previewUrl;
-      image.hidden = false;
-      statusText('Compare the original label carefully before applying values.');
-    } else if (file) {
-      statusText('Select a PNG, JPEG or WebP image up to 5 MiB.');
-    } else {
-      statusText('');
-    }
-  });
   run.addEventListener('click', () => {
     session += 1;
     stopListening();
@@ -165,7 +152,7 @@ function createLabelAssistant({ getExisting, applyValues }) {
       const handoff = beginHandoff({
         phoneOrigin: origin.value,
         recipeId: 'nutrition-label-facts',
-        inputs: { image: photo.files?.[0] },
+        inputs: { image: imageInput.image },
         onStatus: (phase, details) => {
           if (session !== currentSession || !dialog.open) return;
           if (phase === 'awaiting-ready') {

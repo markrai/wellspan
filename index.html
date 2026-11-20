@@ -97,8 +97,17 @@
             <p class="label-note">Uses your LOBO Android Workbench, with automatic runs for previously trusted integrations. Nothing is saved automatically.</p>
             <label for="label-origin">LOBO Workbench HTTPS origin</label>
             <input id="label-origin" type="url" inputmode="url" spellcheck="false" autocomplete="off" placeholder="https://192.168.1.200:7869">
-            <label for="label-photo">Nutrition Facts photo</label>
-            <input id="label-photo" type="file" accept="image/png,image/jpeg,image/webp">
+            <label id="label-photo-title" for="label-photo">Nutrition Facts photo</label>
+            <div id="label-drop-zone" class="label-drop-zone" role="group" tabindex="0" aria-labelledby="label-photo-title" aria-describedby="label-drop-hint label-file-name">
+              <strong>Drop a label image here</strong>
+              <span id="label-drop-hint">Or paste an image with Ctrl+V / ⌘V</span>
+              <div class="label-buttons">
+                <button type="button" class="button small" id="label-browse">Choose file</button>
+                <button type="button" class="button small" id="label-paste">Paste image</button>
+              </div>
+              <span id="label-file-name" class="label-file-name" aria-live="polite">No image selected</span>
+            </div>
+            <input id="label-photo" type="file" accept="image/png,image/jpeg,image/webp" hidden>
             <img id="label-photo-preview" class="label-image" alt="Selected Nutrition Facts label to compare with extracted values" hidden>
             <div class="label-buttons">
               <button type="button" class="button" id="label-run">Extract with LOBO</button>

@@ -129,7 +129,11 @@ dialog::backdrop { background: rgba(22, 38, 30, .45); }
 .label-assistant { margin: 7px 0 9px; padding: 14px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); }
 .label-assistant .form-subtitle { padding-top: 0; }
 .label-note, .label-serving { color: var(--muted); font-size: 12px; line-height: 1.5; }
-.label-assistant input[type="file"] { width: 100%; height: auto; padding: 8px; }
+.label-drop-zone { display: grid; justify-items: center; gap: 9px; padding: 19px 12px; border: 2px dashed var(--border); border-radius: 9px; background: var(--surface); text-align: center; transition: background .16s ease-out, border-color .16s ease-out; }
+.label-drop-zone strong { font-size: 13px; color: var(--ink); }
+.label-drop-zone #label-drop-hint, .label-file-name { font-size: 12px; color: var(--muted); line-height: 1.45; overflow-wrap: anywhere; max-width: 100%; }
+.label-drop-zone.is-dragging { border-color: var(--green); background: color-mix(in srgb, var(--green) 12%, var(--surface)); }
+.label-drop-zone:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .label-image { width: 100%; max-height: 220px; object-fit: contain; border: 1px solid var(--border); border-radius: 8px; }
 .label-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
 .label-review { display: grid; gap: 12px; }
