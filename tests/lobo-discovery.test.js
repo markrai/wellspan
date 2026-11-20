@@ -36,6 +36,7 @@ test('preferred identity survives a DHCP IP change and never picks a different p
   const known = candidates();
   assert.equal(chooseDevice(known, 'LOBO-8207D3', 'https://192.168.1.50:7869').origin, 'https://192.168.1.200:7869');
   assert.equal(chooseDevice(known, 'LOBO-FFFFFF', 'https://192.168.1.50:7869'), null);
+  assert.equal(chooseDevice(known, 'LOBO-FFFFFF', 'https://192.168.1.200:7869'), null);
   assert.equal(chooseDevice(known, '', 'https://192.168.1.201:7869').id, 'LOBO-17AE84');
   assert.equal(chooseDevice(known, '', ''), null);
   assert.equal(chooseDevice([known[0]], '', '').id, known[0].id);
