@@ -56,6 +56,6 @@ test('device preference is bounded and manual handoff can clear previous associa
   assert.equal(preferredDevice(storage), 'LOBO-8207D3');
   assert.equal(rememberDevice(storage, ''), true);
   assert.equal(preferredDevice(storage), '');
-  assert.equal(rememberDevice({getItem: () => {throw Error('denied')}}, 'LOBO-8207D3'), true);
+  assert.equal(rememberDevice({getItem: () => {throw Error('denied')}}, 'LOBO-8207D3'), false);
   assert.equal(preferredDevice({getItem: () => {throw Error('denied')}}), '');
 });
