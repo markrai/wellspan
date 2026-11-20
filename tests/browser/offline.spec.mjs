@@ -282,6 +282,104 @@ test('food modal receives a confirmed LOBO result but only applies values after 
   expect(remote.state.foods[0].nutrients.calories).toBeNull();
 });
 
+test('label image picker, drop and clipboard paste share preview and reject invalid files', async ({ page, request, server }) => {
+  await setupStarter(page, server);
+  await page.getByRole('button', { name: 'Edit Walnuts' }).click();
+  await page.locator('#label-photo').setInputFiles({
+    name: 'picked.png', mimeType: 'image/png', buffer: Buffer.from('picked image')
+  });
+  await expect(page.locator('#label-file-name')).toHaveText('picked.png');
+  await expect(page.locator('#label-photo-preview')).toBeVisible();
+
+  await page.evaluate(() => {
+    const data = new DataTransfer();
+    data.items.add(new File(['dropped image'], 'dropped.png', { type: 'image/png' }));
+    const zone = document.querySelector('#label-drop-zone');
+    zone.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: data }));
+    zone.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: data }));
+  });
+  await expect(page.locator('#label-file-name')).toHaveText('dropped.png');
+  await expect(page.locator('#label-photo')).toHaveValue('');
+  await expect(page.locator('#label-photo-preview')).toBeVisible();
+
+  await page.evaluate(() => {
+    const data = new DataTransfer();
+    data.items.add(new File(['pasted image'], 'pasted.png', { type: 'image/png' }));
+    document.querySelector('#label-drop-zone').dispatchEvent(
+      new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data })
+    );
+  });
+  await expect(page.locator('#label-file-name')).toHaveText('pasted.png');
+  await expect(page.locator('#label-photo-preview')).toBeVisible();
+
+  const editablePastePrevented = await page.evaluate(() => {
+    const data = new DataTransfer();
+    data.items.add(new File(['leave text field alone'], 'ignored.png', { type: 'image/png' }));
+    const event = new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data });
+    document.querySelector('#field-name').dispatchEvent(event);
+    return event.defaultPrevented;
+  });
+  expect(editablePastePrevented).toBe(false);
+  await expect(page.locator('#label-file-name')).toHaveText('pasted.png');
+
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { read: async () => [{ types: ['image/png'], getType: async () => new Blob(['clipboard image'], { type: 'image/png' }) }] }
+    });
+  });
+  await page.locator('#label-paste').click();
+  await expect(page.locator('#label-file-name')).toHaveText('Clipboard image');
+
+  await page.evaluate(() => {
+    const data = new DataTransfer();
+    data.items.add(new File(['GIF not supported'], 'bad.gif', { type: 'image/gif' }));
+    document.querySelector('#label-drop-zone').dispatchEvent(
+      new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: data })
+    );
+  });
+  await expect(page.locator('#label-status')).toContainText('PNG, JPEG or WebP');
+  await expect(page.locator('#label-file-name')).toHaveText('No image selected');
+  await expect(page.locator('#label-photo-preview')).toBeHidden();
+  await expect(page.locator('#label-review')).toBeHidden();
+
+  await page.locator('#cancel-button').click();
+  const remote = await (await request.get(server.url + '/api/v1/state')).json();
+  expect(remote.revision).toBe(1);
+  expect(remote.state.foods[0].nutrients.calories).toBeNull();
+});
+
+test('pasted Nutrition Facts image reaches LOBO without skipping manual review', async ({ page, context, request, server }) => {
+  const mock = readFileSync(new URL('./mock-lobo.html', import.meta.url), 'utf8');
+  const sample = readFileSync(new URL('../../probe/fixtures/supported-nutrition.json', import.meta.url), 'utf8');
+  await context.route('https://phone.example:7869/**', route => route.fulfill({
+    status: 200, contentType: 'text/html', body: mock.replace('__REPORT__', sample)
+  }));
+  await setupStarter(page, server);
+  await page.getByRole('button', { name: 'Edit Walnuts' }).click();
+  await page.locator('#label-origin').fill('https://phone.example:7869');
+  await page.evaluate(() => {
+    const data = new DataTransfer();
+    data.items.add(new File(['pasted nutrition label'], 'nutrition.png', { type: 'image/png' }));
+    document.querySelector('#label-drop-zone').dispatchEvent(
+      new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data })
+    );
+  });
+  await expect(page.locator('#label-file-name')).toHaveText('nutrition.png');
+  const popupEvent = page.waitForEvent('popup');
+  await page.locator('#label-run').click();
+  const popup = await popupEvent;
+  await expect(popup.locator('#approve')).toBeVisible({ timeout: 15000 });
+  await popup.locator('#approve').click();
+  await expect(page.locator('#label-review')).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('#label-fields')).toContainText('185 kcal');
+  await expect(page.locator('#field-calories')).toHaveValue('');
+  await expect(page.locator('#label-apply')).toBeDisabled();
+  const remote = await (await request.get(server.url + '/api/v1/state')).json();
+  expect(remote.revision).toBe(1);
+  expect(remote.state.foods[0].nutrients.calories).toBeNull();
+});
+
 test('label assistant cannot mutate food values without explicit approval', async ({ page, request, server }) => {
   await setupStarter(page, server);
   await page.getByRole('button', { name: 'Edit Walnuts' }).click();
