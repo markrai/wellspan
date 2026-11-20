@@ -36,6 +36,7 @@ function preferredDevice(storage) {
 
 function rememberDevice(storage, id) {
   if (id !== '' && (typeof id !== 'string' || !DEVICE_ID.test(id))) return false;
+  if (!storage || (id ? typeof storage.setItem !== 'function' : typeof storage.removeItem !== 'function')) return false;
   try {
     if (id) storage?.setItem(PREFERRED_DEVICE_KEY, id);
     else storage?.removeItem(PREFERRED_DEVICE_KEY);
