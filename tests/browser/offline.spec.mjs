@@ -446,6 +446,34 @@ test('pasted Nutrition Facts image fills editable fields without saving automati
   expect(remote.state.foods[0].nutrients.calories).toBeNull();
 });
 
+test('plural carbohydrates evidence fills editable draft without saving automatically', async ({ page, context, request, server }) => {
+  const mock = readFileSync(new URL('./mock-lobo.html', import.meta.url), 'utf8');
+  const report = JSON.parse(readFileSync(new URL('../../probe/fixtures/supported-nutrition.json', import.meta.url), 'utf8'));
+  const carb = report.fields.find(field => field.id === 'protein_g');
+  Object.assign(carb, { id: 'carbohydrate_g', label: 'Total carbohydrate', value: 4, evidence: 'Total Carbohydrates 4g' });
+  await context.route('https://phone.example:7869/**', route => route.fulfill({
+    status: 200, contentType: 'text/html', body: mock.replace('__REPORT__', JSON.stringify(report))
+  }));
+  await setupStarter(page, server);
+  await page.getByRole('button', { name: 'Edit Walnuts' }).click();
+  await page.locator('#label-origin').fill('https://phone.example:7869');
+  await page.locator('#label-photo').setInputFiles({
+    name: 'nutrition.png', mimeType: 'image/png', buffer: Buffer.from('mock label')
+  });
+  const popupEvent = page.waitForEvent('popup');
+  await page.locator('#label-run').click();
+  const popup = await popupEvent;
+  await expect(popup.locator('#approve')).toBeVisible({ timeout: 15000 });
+  await popup.locator('#approve').click();
+  await expect(page.locator('#label-review')).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('#field-carbs')).toHaveValue('4');
+  await expect(page.locator('#label-status')).toContainText('filled 2 nutrient fields');
+  await expect(page.locator('#label-status')).toHaveAttribute('data-severity', 'info');
+  const remote = await (await request.get(server.url + '/api/v1/state')).json();
+  expect(remote.revision).toBe(1);
+  expect(remote.state.foods[0].nutrients.carbs).toBeNull();
+});
+
 test('ambiguous optional sodium evidence is skipped without blocking other LOBO fields or saving', async ({ page, context, request, server }) => {
   const mock = readFileSync(new URL('./mock-lobo.html', import.meta.url), 'utf8');
   const report = JSON.parse(readFileSync(new URL('../../probe/fixtures/supported-nutrition.json', import.meta.url), 'utf8'));

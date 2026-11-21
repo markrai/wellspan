@@ -164,6 +164,42 @@ test('ambiguous optional sodium evidence is quarantined while verified nutrients
   assert.equal(assessExtractionReport(unsupported).ok, false);
 });
 
+test('printed carbohydrate singular and plural labels import, while ambiguous quotes remain quarantined', () => {
+  const base = read('supported-nutrition');
+  const nutrient = base.fields.find(field => field.id === 'protein_g');
+  nutrient.id = 'carbohydrate_g';
+  nutrient.label = 'Total carbohydrate';
+  nutrient.value = 4;
+
+  for (const evidence of ['Total Carbohydrate 4g', 'Total Carbohydrates 4g', 'Carbohydrates 4 g', 'Total Carb. 4g', 'Total Carbs 4g']) {
+    const report = structuredClone(base);
+    report.fields.find(field => field.id === 'carbohydrate_g').evidence = evidence;
+    const assessment = assessExtractionReport(report);
+    assert.equal(assessment.ok, true, evidence);
+    assert.equal(assessment.nutrition.carbs, 4, evidence);
+    assert.deepEqual(assessment.quarantined, [], evidence);
+  }
+
+  for (const evidence of ['4g', 'Total Fat 4g', 'Dietary Fiber 4g']) {
+    const report = structuredClone(base);
+    report.fields.find(field => field.id === 'carbohydrate_g').evidence = evidence;
+    const assessment = assessExtractionReport(report);
+    assert.equal(assessment.ok, true, evidence);
+    assert.equal(assessment.nutrition.carbs, null, evidence);
+    assert.deepEqual(assessment.quarantined, ['carbohydrate_g'], evidence);
+  }
+
+  const mismatch = structuredClone(base);
+  mismatch.fields.find(field => field.id === 'carbohydrate_g').evidence = 'Total Carbohydrates 14g';
+  assert.equal(assessExtractionReport(mismatch).ok, false);
+
+  const required = structuredClone(base);
+  const requiredField = required.fields.find(field => field.id === 'carbohydrate_g');
+  requiredField.required = true;
+  requiredField.evidence = '4g';
+  assert.equal(assessExtractionReport(required).ok, false);
+});
+
 test('an explicit zero stays zero while an absent nutrient stays null', () => {
   const report = read('supported-nutrition');
   report.fields[2].value = 0;

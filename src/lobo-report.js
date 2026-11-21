@@ -8,7 +8,7 @@ const SUPPORT = new Set(['matched', 'unmatched', 'none']);
 const EVIDENCE_TERMS = Object.freeze({
   calories_kcal: /\b(calories|energy)\b/i,
   protein_g: /\bprotein\b/i,
-  carbohydrate_g: /\b(carbohydrate|carbs?)\b/i,
+  carbohydrate_g: /\b(carbohydrates?|carbs?)\b/i,
   fat_g: /\b(total fat|fat)\b/i,
   saturated_fat_g: /\bsaturat/i,
   fiber_g: /\b(fiber|fibre)\b/i,
