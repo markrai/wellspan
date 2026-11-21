@@ -446,6 +446,39 @@ test('pasted Nutrition Facts image fills editable fields without saving automati
   expect(remote.state.foods[0].nutrients.calories).toBeNull();
 });
 
+test('ambiguous optional sodium evidence is skipped without blocking other LOBO fields or saving', async ({ page, context, request, server }) => {
+  const mock = readFileSync(new URL('./mock-lobo.html', import.meta.url), 'utf8');
+  const report = JSON.parse(readFileSync(new URL('../../probe/fixtures/supported-nutrition.json', import.meta.url), 'utf8'));
+  const sodium = report.fields.find(field => field.id === 'sodium_mg');
+  Object.assign(sodium, { status: 'valid', value: 0, reason: null, support: 'matched', evidence: '0mg' });
+  report.counts.valid += 1;
+  report.counts.missing -= 1;
+  await context.route('https://phone.example:7869/**', route => route.fulfill({
+    status: 200, contentType: 'text/html', body: mock.replace('__REPORT__', JSON.stringify(report))
+  }));
+  await setupStarter(page, server);
+  await page.getByRole('button', { name: 'Edit Walnuts' }).click();
+  await page.locator('#field-sodium').fill('42');
+  await page.locator('#label-origin').fill('https://phone.example:7869');
+  await page.locator('#label-photo').setInputFiles({
+    name: 'nutrition.png', mimeType: 'image/png', buffer: Buffer.from('mock label')
+  });
+  const popupEvent = page.waitForEvent('popup');
+  await page.locator('#label-run').click();
+  const popup = await popupEvent;
+  await expect(popup.locator('#approve')).toBeVisible({ timeout: 15000 });
+  await popup.locator('#approve').click();
+  await expect(page.locator('#label-review')).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('#field-calories')).toHaveValue('185');
+  await expect(page.locator('#field-protein')).toHaveValue('4.3');
+  await expect(page.locator('#field-sodium')).toHaveValue('42');
+  await expect(page.locator('#label-fields')).toContainText('Not imported (ambiguous quote)');
+  await expect(page.locator('#label-status')).toContainText('Skipped Sodium');
+  const remote = await (await request.get(server.url + '/api/v1/state')).json();
+  expect(remote.revision).toBe(1);
+  expect(remote.state.foods[0].nutrients.calories).toBeNull();
+});
+
 test('label assistant cannot mutate food values without a valid extraction result', async ({ page, request, server }) => {
   await setupStarter(page, server);
   await page.getByRole('button', { name: 'Edit Walnuts' }).click();
