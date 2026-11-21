@@ -474,9 +474,43 @@ test('ambiguous optional sodium evidence is skipped without blocking other LOBO 
   await expect(page.locator('#field-sodium')).toHaveValue('42');
   await expect(page.locator('#label-fields')).toContainText('Not imported (ambiguous quote)');
   await expect(page.locator('#label-status')).toContainText('Skipped Sodium');
+  await expect(page.locator('#label-status')).toHaveAttribute('data-severity', 'error');
+  await expect(page.locator('#label-status')).toHaveAttribute('role', 'alert');
+  await expect(page.locator('#label-status')).toHaveCSS('color', /rgb\((143, 53, 43|232, 154, 144)\)/);
+  await expect(page.locator('#label-fields td[data-severity="error"]')).toHaveText('Not imported (ambiguous quote)');
+  await expect(page.locator('#label-fields td[data-severity="error"]')).toHaveCSS('color', /rgb\((143, 53, 43|232, 154, 144)\)/);
   const remote = await (await request.get(server.url + '/api/v1/state')).json();
   expect(remote.revision).toBe(1);
   expect(remote.state.foods[0].nutrients.calories).toBeNull();
+});
+
+test('not eligible extraction error is red and does not change editor values', async ({ page, context, request, server }) => {
+  const mock = readFileSync(new URL('./mock-lobo.html', import.meta.url), 'utf8');
+  const report = JSON.parse(readFileSync(new URL('../../probe/fixtures/supported-nutrition.json', import.meta.url), 'utf8'));
+  report.fields.find(field => field.id === 'calories_kcal').evidence = 'Protein 185';
+  await context.route('https://phone.example:7869/**', route => route.fulfill({
+    status: 200, contentType: 'text/html', body: mock.replace('__REPORT__', JSON.stringify(report))
+  }));
+  await setupStarter(page, server);
+  await page.getByRole('button', { name: 'Edit Walnuts' }).click();
+  await page.locator('#field-calories').fill('90');
+  await page.locator('#label-origin').fill('https://phone.example:7869');
+  await page.locator('#label-photo').setInputFiles({
+    name: 'nutrition.png', mimeType: 'image/png', buffer: Buffer.from('mock label')
+  });
+  const popupEvent = page.waitForEvent('popup');
+  await page.locator('#label-run').click();
+  const popup = await popupEvent;
+  await expect(popup.locator('#approve')).toBeVisible({ timeout: 15000 });
+  await popup.locator('#approve').click();
+  await expect(page.locator('#label-status')).toContainText('LOBO extraction was not eligible');
+  await expect(page.locator('#label-status')).toHaveAttribute('data-severity', 'error');
+  await expect(page.locator('#label-status')).toHaveAttribute('role', 'alert');
+  await expect(page.locator('#label-status')).toHaveCSS('color', /rgb\((143, 53, 43|232, 154, 144)\)/);
+  await expect(page.locator('#label-review')).toBeHidden();
+  await expect(page.locator('#field-calories')).toHaveValue('90');
+  const remote = await (await request.get(server.url + '/api/v1/state')).json();
+  expect(remote.revision).toBe(1);
 });
 
 test('label assistant cannot mutate food values without a valid extraction result', async ({ page, request, server }) => {
@@ -488,6 +522,8 @@ test('label assistant cannot mutate food values without a valid extraction resul
   await page.locator('#field-protein').fill('9');
   await page.locator('#label-run').click();
   await expect(page.locator('#label-status')).toContainText('Cannot start LOBO');
+  await expect(page.locator('#label-status')).toHaveAttribute('data-severity', 'error');
+  await expect(page.locator('#label-status')).toHaveCSS('color', /rgb\((143, 53, 43|232, 154, 144)\)/);
   expect(await page.evaluate(() => localStorage.getItem('wellspan.lobo.lastWorkbench/v1'))).toBeNull();
   await expect(page.locator('#field-protein')).toHaveValue('9');
   await page.locator('#cancel-button').click();
