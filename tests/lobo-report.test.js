@@ -118,6 +118,52 @@ test('serving grams accept only a matching weight linked to the printed serving'
   assert.equal(assessExtractionReport(withoutServingText).ok, true);
 });
 
+test('ambiguous optional sodium evidence is quarantined while verified nutrients remain usable', () => {
+  const report = read('supported-nutrition');
+  const sodium = report.fields.find(field => field.id === 'sodium_mg');
+  sodium.status = 'valid';
+  sodium.value = 0;
+  sodium.reason = null;
+  sodium.support = 'matched';
+  sodium.evidence = '0mg';
+  report.counts.valid += 1;
+  report.counts.missing -= 1;
+
+  const result = assessExtractionReport(report);
+  assert.equal(result.ok, true);
+  assert.equal(result.nutrition.calories, 185);
+  assert.equal(result.nutrition.protein, 4.3);
+  assert.equal(result.nutrition.sodium, null);
+  assert.deepEqual(result.quarantined, ['sodium_mg']);
+  assert.match(result.warnings.join(' '), /Sodium.*not imported/);
+
+  const wrongLine = structuredClone(report);
+  wrongLine.fields.find(field => field.id === 'sodium_mg').evidence = 'Cholesterol 0mg';
+  const wrong = assessExtractionReport(wrongLine);
+  assert.equal(wrong.ok, true);
+  assert.equal(wrong.nutrition.sodium, null);
+
+  const supported = structuredClone(report);
+  supported.fields.find(field => field.id === 'sodium_mg').evidence = 'Sodium 0mg';
+  const accepted = assessExtractionReport(supported);
+  assert.equal(accepted.ok, true);
+  assert.deepEqual(accepted.quarantined, []);
+  assert.equal(accepted.nutrition.sodium, 0);
+
+  const required = structuredClone(report);
+  required.fields.find(field => field.id === 'sodium_mg').required = true;
+  assert.equal(assessExtractionReport(required).ok, false);
+
+  const wrongNumber = structuredClone(report);
+  wrongNumber.fields.find(field => field.id === 'sodium_mg').evidence = '1mg';
+  assert.equal(assessExtractionReport(wrongNumber).ok, false);
+
+  const unsupported = structuredClone(report);
+  unsupported.fields.find(field => field.id === 'sodium_mg').support = 'unmatched';
+  unsupported.counts.unsupported += 1;
+  assert.equal(assessExtractionReport(unsupported).ok, false);
+});
+
 test('an explicit zero stays zero while an absent nutrient stays null', () => {
   const report = read('supported-nutrition');
   report.fields[2].value = 0;

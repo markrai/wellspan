@@ -1,4 +1,4 @@
-const CACHE = 'wellspan-app-shell-v8';
+const CACHE = 'wellspan-app-shell-v9';
 const ASSETS = [
   '/',
   '/manifest.webmanifest',

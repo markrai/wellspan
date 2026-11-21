@@ -31,10 +31,13 @@ function prepareLabelReview(report) {
   if (!result.ok) return { ok: false, errors: result.errors, rows: [], serving: [] };
   const rows = report.fields.filter(field => Object.hasOwn(NUTRIENTS, field.id)).map(field => {
     const key = NUTRIENTS[field.id];
-    return { key, label: FRIENDLY[key], unit: UNITS[key], value: field.status === 'valid' ? result.nutrition[key] : null, evidence: field.status === 'valid' ? field.evidence : null };
+    return { key, label: FRIENDLY[key], unit: UNITS[key],
+      value: field.status === 'valid' ? result.nutrition[key] : null,
+      evidence: field.status === 'valid' ? field.evidence : null,
+      quarantined: result.quarantined.includes(field.id) };
   });
   if (!rows.some(row => row.value !== null)) return { ok: false, errors: ['No verified nutrition values were returned.'], rows: [], serving: result.serving };
-  return { ok: true, errors: [], rows, serving: result.serving };
+  return { ok: true, errors: [], rows, serving: result.serving, warnings: result.warnings };
 }
 
 function extractedLabelValues(review) {
@@ -156,7 +159,7 @@ function createLabelAssistant({ applyValues }) {
   const imageInput = createLabelImageInput({
     dialog, photo, preview: image,
     dropZone: $('label-drop-zone'), browse: $('label-browse'), paste: $('label-paste'),
-    fileName: $('label-file-name'), notify: statusText,
+    fileName: $('label-file-name'), notify: message => statusText(message, message.startsWith('Image ready.') ? 'info' : 'error'),
     beforeReplace: () => {
       session += 1;
       stopListening();
@@ -164,7 +167,11 @@ function createLabelAssistant({ applyValues }) {
     }
   });
 
-  function statusText(message) { status.textContent = message; }
+  function statusText(message, severity = 'info') {
+    status.dataset.severity = severity;
+    status.setAttribute('role', severity === 'error' ? 'alert' : 'status');
+    status.textContent = message;
+  }
   function clearReview() {
     review = null;
     table.replaceChildren();
@@ -200,14 +207,14 @@ function createLabelAssistant({ applyValues }) {
     clearReview();
     review = prepareLabelReview(report);
     if (!review.ok) {
-      statusText('LOBO extraction was not eligible: ' + review.errors.join('; '));
+      statusText('LOBO extraction was not eligible: ' + review.errors.join('; '), 'error');
       return;
     }
     let values;
     try {
       values = extractedLabelValues(review);
     } catch (error) {
-      statusText('LOBO extraction was not eligible: ' + (error?.message || 'invalid nutrients'));
+      statusText('LOBO extraction was not eligible: ' + (error?.message || 'invalid nutrients'), 'error');
       return;
     }
     const serving = review.serving.map(item => item.value === null ? item.id + ': not printed' : item.id + ': ' + String(item.value)).join(' · ');
@@ -217,7 +224,9 @@ function createLabelAssistant({ applyValues }) {
       const nutrient = document.createElement('td');
       nutrient.textContent = row.label;
       const value = document.createElement('td');
-      value.textContent = row.value === null ? 'Not printed' : String(row.value) + ' ' + row.unit;
+      value.textContent = row.quarantined ? 'Not imported (ambiguous quote)' :
+        row.value === null ? 'Not printed' : String(row.value) + ' ' + row.unit;
+      if (row.quarantined) value.dataset.severity = 'error';
       const evidence = document.createElement('td');
       evidence.textContent = row.evidence || 'No printed value';
       tr.append(nutrient, value, evidence);
@@ -225,7 +234,10 @@ function createLabelAssistant({ applyValues }) {
     }
     applyValues(values);
     reviewPanel.hidden = false;
-    statusText('LOBO filled ' + Object.keys(values).length + ' nutrient fields in the editor. Review the serving and edit values as needed. Save food to keep changes.');
+    const skipped = review.rows.filter(row => row.quarantined).map(row => row.label);
+    statusText('LOBO filled ' + Object.keys(values).length + ' nutrient fields in the editor. ' +
+      (skipped.length ? 'Skipped ' + skipped.join(', ') + ' because its evidence quote did not identify the nutrient. Check the label and enter it manually. ' : '') +
+      'Review the serving and edit values as needed. Save food to keep changes.', skipped.length ? 'error' : 'info');
   }
   function onTerminal(result, expectedSession) {
     if (expectedSession !== session || !dialog.open) return;
@@ -234,7 +246,7 @@ function createLabelAssistant({ applyValues }) {
     stop.hidden = true;
     if (result.type === 'result') {
       if (result.output?.type !== 'json') {
-        statusText('LOBO returned text, not a nutrition extraction report.');
+        statusText('LOBO returned text, not a nutrition extraction report.', 'error');
         return;
       }
       showReview(result.output.value);
@@ -248,7 +260,7 @@ function createLabelAssistant({ applyValues }) {
         : 'LOBO did not return a confirmed result within 15 minutes after connecting. The Recipe may have finished on the phone, but Wellspan cannot accept an expired handoff.',
       unavailable: 'LOBO could not receive the handoff request. Check the Workbench window and retry.'
     };
-    statusText(reason[result.type] || 'LOBO did not return a usable result: ' + (result.code || 'unknown error'));
+    statusText(reason[result.type] || 'LOBO did not return a usable result: ' + (result.code || 'unknown error'), 'error');
   }
 
   run.addEventListener('click', () => {
@@ -271,7 +283,7 @@ function createLabelAssistant({ applyValues }) {
             rememberDevice(preferenceStorage, discovered.find(device => device.origin === requestedOrigin)?.id || '');
             statusText('LOBO received the label. Waiting for the Recipe result; this can take several minutes.');
           } else if (phase === 'rejected-result') {
-            statusText('LOBO sent a result that Wellspan rejected (' + details.code + '). No values were applied; waiting for a valid result.');
+            statusText('LOBO sent a result that Wellspan rejected (' + details.code + '). No values were applied; waiting for a valid result.', 'error');
           }
         },
         onTerminal: terminal => onTerminal(terminal, currentSession)
@@ -280,7 +292,7 @@ function createLabelAssistant({ applyValues }) {
       run.disabled = true;
       stop.hidden = false;
     } catch (error) {
-      statusText('Cannot start LOBO: ' + (error?.message || 'invalid request'));
+      statusText('Cannot start LOBO: ' + (error?.message || 'invalid request'), 'error');
     }
   });
   stop.addEventListener('click', () => { if (active) stopListening(); });

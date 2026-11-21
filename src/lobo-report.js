@@ -122,7 +122,21 @@ function assessExtractionReport(report) {
   if (report.status !== 'valid') errors.push('LOBO reported invalid extraction');
   if (report.problems.length) errors.push('LOBO reported extraction problems');
   const seen = new Set();
-  for (const field of report.fields) validateField(field, seen, errors, report.fields);
+  const quarantined = new Set();
+  const warnings = ['Evidence quotes are producer-claimed matches. Compare every field and serving basis against the original label.'];
+  for (const field of report.fields) {
+    const fieldErrors = [];
+    validateField(field, seen, fieldErrors, report.fields);
+    const ambiguous = fieldErrors.length === 1 && fieldErrors[0] ===
+      field.id + ': quoted evidence does not identify the expected nutrition field';
+    if (ambiguous && Object.hasOwn(NUTRIENTS, field.id) && field.status === 'valid' &&
+      field.type === 'number' && field.required === false && field.support === 'matched') {
+      quarantined.add(field.id);
+      warnings.push(field.label + ': ambiguous evidence quote; value was not imported.');
+    } else {
+      errors.push(...fieldErrors);
+    }
+  }
   for (const name of ['valid', 'missing', 'invalid']) {
     if (report.counts[name] !== report.fields.filter(field => field?.status === name).length) {
       errors.push('Incorrect ' + name + ' field count');
@@ -132,12 +146,11 @@ function assessExtractionReport(report) {
     errors.push('Incorrect unsupported evidence count');
   }
   if (report.counts.unsupported > 0) errors.push('At least one field has unsupported evidence');
-  const warnings = ['Evidence quotes are producer-claimed matches. Compare every field and serving basis against the original label.'];
   const nutrition = errors.length ? null : Object.fromEntries(
     Object.entries(NUTRIENTS).map(([sourceId, target]) => {
       const field = report.fields.find(entry => entry.id === sourceId);
-      const value = field?.status === 'valid' && field.type === 'number' && field.support === 'matched'
-        ? field.value : null;
+      const value = field?.status === 'valid' && field.type === 'number' &&
+        field.support === 'matched' && !quarantined.has(sourceId) ? field.value : null;
       return [target, Number.isFinite(value) && value >= 0 && value <= 1000000 ? value : null];
     })
   );
@@ -151,6 +164,7 @@ function assessExtractionReport(report) {
     ok: errors.length === 0,
     errors,
     warnings,
+    quarantined: [...quarantined],
     nutrition: errors.length === 0 ? nutrition : null,
     serving
   };

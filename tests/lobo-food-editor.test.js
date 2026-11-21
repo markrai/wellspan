@@ -35,6 +35,20 @@ test('a report containing only serving details cannot populate the editor', () =
   assert.throws(() => extractedLabelValues(review), /valid extraction report/);
 });
 
+test('ambiguous optional sodium quote is displayed but never auto-fills sodium', () => {
+  const report = fixture('supported-nutrition');
+  const sodium = report.fields.find(field => field.id === 'sodium_mg');
+  Object.assign(sodium, { status: 'valid', value: 0, reason: null, support: 'matched', evidence: '0mg' });
+  report.counts.valid += 1;
+  report.counts.missing -= 1;
+  const review = prepareLabelReview(report);
+  assert.equal(review.ok, true);
+  assert.equal(review.rows.find(row => row.key === 'sodium').quarantined, true);
+  assert.equal(review.rows.find(row => row.key === 'sodium').value, null);
+  assert.deepEqual(extractedLabelValues(review), { calories: 185, protein: 4.3 });
+  assert.match(review.warnings.join(' '), /Sodium.*not imported/);
+});
+
 test('only distinct nonnegative finite known nutrients are eligible for automatic application', () => {
   const review = prepareLabelReview(fixture('supported-nutrition'));
   assert.deepEqual(extractedLabelValues({ ...review, rows: [{ key: 'calories', value: 0 }] }), { calories: 0 });
