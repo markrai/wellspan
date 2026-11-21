@@ -31,10 +31,13 @@ function prepareLabelReview(report) {
   if (!result.ok) return { ok: false, errors: result.errors, rows: [], serving: [] };
   const rows = report.fields.filter(field => Object.hasOwn(NUTRIENTS, field.id)).map(field => {
     const key = NUTRIENTS[field.id];
-    return { key, label: FRIENDLY[key], unit: UNITS[key], value: field.status === 'valid' ? result.nutrition[key] : null, evidence: field.status === 'valid' ? field.evidence : null };
+    return { key, label: FRIENDLY[key], unit: UNITS[key],
+      value: field.status === 'valid' ? result.nutrition[key] : null,
+      evidence: field.status === 'valid' ? field.evidence : null,
+      quarantined: result.quarantined.includes(field.id) };
   });
   if (!rows.some(row => row.value !== null)) return { ok: false, errors: ['No verified nutrition values were returned.'], rows: [], serving: result.serving };
-  return { ok: true, errors: [], rows, serving: result.serving };
+  return { ok: true, errors: [], rows, serving: result.serving, warnings: result.warnings };
 }
 
 function extractedLabelValues(review) {
@@ -217,7 +220,8 @@ function createLabelAssistant({ applyValues }) {
       const nutrient = document.createElement('td');
       nutrient.textContent = row.label;
       const value = document.createElement('td');
-      value.textContent = row.value === null ? 'Not printed' : String(row.value) + ' ' + row.unit;
+      value.textContent = row.quarantined ? 'Not imported (ambiguous quote)' :
+        row.value === null ? 'Not printed' : String(row.value) + ' ' + row.unit;
       const evidence = document.createElement('td');
       evidence.textContent = row.evidence || 'No printed value';
       tr.append(nutrient, value, evidence);
@@ -225,7 +229,10 @@ function createLabelAssistant({ applyValues }) {
     }
     applyValues(values);
     reviewPanel.hidden = false;
-    statusText('LOBO filled ' + Object.keys(values).length + ' nutrient fields in the editor. Review the serving and edit values as needed. Save food to keep changes.');
+    const skipped = review.rows.filter(row => row.quarantined).map(row => row.label);
+    statusText('LOBO filled ' + Object.keys(values).length + ' nutrient fields in the editor. ' +
+      (skipped.length ? 'Skipped ' + skipped.join(', ') + ' because its evidence quote did not identify the nutrient. Check the label and enter it manually. ' : '') +
+      'Review the serving and edit values as needed. Save food to keep changes.');
   }
   function onTerminal(result, expectedSession) {
     if (expectedSession !== session || !dialog.open) return;
